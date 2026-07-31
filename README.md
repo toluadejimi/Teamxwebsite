@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Team X Technologies
 
-## Getting Started
+Official website for **Team X Technologies Ltd** — a premium enterprise software company building banking platforms, government portals, healthcare systems, education solutions, AI products, and custom business software.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router) + React 19 + TypeScript
+- **Tailwind CSS v4** design system (dark / light)
+- **Framer Motion**, **GSAP-ready**, **Lenis** smooth scroll
+- **Three.js** hero accents, **Swiper**, **react-countup**, **Lucide**
+- SEO: metadata, Open Graph, sitemap, robots, JSON-LD
+
+## Admin console
+
+Visit [http://localhost:3000/admin](http://localhost:3000/admin)
+
+Default password: set `ADMIN_PASSWORD` in `.env.local` (never commit it).
+
+After password login you must complete **Google Authenticator 2FA** (first login shows a QR to scan).
+
+| Section | What you manage |
+|---------|-----------------|
+| **Images** | Site image URLs / uploads |
+| **Contact Info** | Email, phone, WhatsApp, Nigeria offices |
+| **Job Postings** | Careers page listings |
+| **Live Chat** | Reply to landing-page chatbot visitors |
+
+CMS data: `data/cms.json` · 2FA secret: `data/security.json` · Uploads: `public/uploads/`
+
+**Security notes:** React does not expose your server by itself. Keep `ADMIN_PASSWORD` strong, use HTTPS in production, never commit `.env` or `security.json`, and keep dependencies updated.
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build   # production build
+npm start       # serve production build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Key routes
 
-## Learn More
+| Path | Description |
+|------|-------------|
+| `/` | Home |
+| `/about` | Company story, leadership, values |
+| `/services` | Service catalog + mega menu destinations |
+| `/services/[slug]` | 66+ service detail pages |
+| `/industries` | Industry verticals |
+| `/products` | Product suite |
+| `/portfolio` | 18 enterprise projects |
+| `/case-studies` | Implementation case studies |
+| `/process` | Delivery methodology |
+| `/technologies` | Technology stack |
+| `/careers` | Jobs & culture |
+| `/blog` | Insights |
+| `/pricing` | Engagement models |
+| `/contact` | Offices & form |
+| `/request-quote` | Quote request |
+| `/book-demo` | Demo booking |
 
-To learn more about Next.js, take a look at the following resources:
+## Design
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Display: **Syne** · Body: **Plus Jakarta Sans** · Mono: **JetBrains Mono**
+- Accent: blue `#2563eb` (light) / `#3b82f6` (dark) on charcoal / soft light surfaces
+- Theme toggle via `next-themes` (default: dark)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project structure
 
-## Deploy on Vercel
+```
+src/
+  app/                 # Routes & SEO
+  components/
+    home/              # Home sections
+    layout/            # Navbar, Footer, Providers
+    ui/                # Design system primitives
+    shared/            # Motion & decorative
+  lib/data/            # Content & helpers
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Replace Unsplash URLs in `src/lib/data/images.ts` with production assets when ready.

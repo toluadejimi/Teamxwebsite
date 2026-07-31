@@ -1,0 +1,69 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Briefcase, ImageIcon, MessageSquare, Phone } from "lucide-react";
+
+export default function AdminDashboardPage() {
+  const router = useRouter();
+  const [stats, setStats] = useState({ jobs: 0, chats: 0, unread: 0, images: 0 });
+
+  useEffect(() => {
+    (async () => {
+      const me = await fetch("/api/admin/me");
+      if (!me.ok) {
+        router.replace("/admin/login");
+        return;
+      }
+      const [jobs, chats, images] = await Promise.all([
+        fetch("/api/admin/jobs").then((r) => r.json()),
+        fetch("/api/admin/chats").then((r) => r.json()),
+        fetch("/api/admin/images").then((r) => r.json()),
+      ]);
+      setStats({
+        jobs: Array.isArray(jobs) ? jobs.length : 0,
+        chats: Array.isArray(chats) ? chats.length : 0,
+        unread: Array.isArray(chats)
+          ? chats.reduce((n: number, c: { unreadAdmin?: number }) => n + (c.unreadAdmin || 0), 0)
+          : 0,
+        images: Array.isArray(images) ? images.length : 0,
+      });
+    })();
+  }, [router]);
+
+  const cards = [
+    { href: "/admin/images", label: "Site Images", value: stats.images, icon: ImageIcon, hint: "Update banners & media" },
+    { href: "/admin/contact", label: "Contact Info", value: "NG", icon: Phone, hint: "Email, phone, Nigeria offices" },
+    { href: "/admin/jobs", label: "Job Postings", value: stats.jobs, icon: Briefcase, hint: "Manage careers page" },
+    { href: "/admin/chat", label: "Live Chat", value: stats.unread, icon: MessageSquare, hint: `${stats.chats} conversations` },
+  ];
+
+  return (
+    <div>
+      <h1 className="font-display text-2xl font-semibold text-white">Dashboard</h1>
+      <p className="mt-1 text-sm text-slate-400">
+        Manage website content, careers, and visitor chat.
+      </p>
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Link
+              key={card.href}
+              href={card.href}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition hover:border-blue-500/40 hover:bg-white/[0.05]"
+            >
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20 text-blue-300">
+                <Icon className="h-5 w-5" />
+              </div>
+              <p className="text-xs uppercase tracking-wider text-slate-500">{card.label}</p>
+              <p className="mt-1 text-2xl font-semibold text-white">{card.value}</p>
+              <p className="mt-1 text-xs text-slate-400">{card.hint}</p>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
