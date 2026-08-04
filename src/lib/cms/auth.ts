@@ -125,7 +125,9 @@ async function canUseFs(): Promise<boolean> {
   }
 }
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL
+  ? path.join("/tmp", "teamx-data")
+  : path.join(process.cwd(), "data");
 const SECURITY_FILE = path.join(DATA_DIR, "security.json");
 
 async function readSecurity(): Promise<SecurityConfig> {

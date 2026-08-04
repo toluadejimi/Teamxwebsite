@@ -3,13 +3,18 @@ import { requireAdmin } from "@/lib/cms/auth";
 import { readCms, uid, updateCms, type ChatMessage } from "@/lib/cms/store";
 
 export async function GET() {
-  const ok = await requireAdmin();
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const data = await readCms();
-  const chats = [...data.chats].sort(
-    (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt)
-  );
-  return NextResponse.json(chats);
+  try {
+    const ok = await requireAdmin();
+    if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const data = await readCms();
+    const chats = [...data.chats].sort(
+      (a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt)
+    );
+    return NextResponse.json(chats);
+  } catch (err) {
+    console.error("[admin/chats GET]", err);
+    return NextResponse.json({ error: "Failed to load chats" }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {

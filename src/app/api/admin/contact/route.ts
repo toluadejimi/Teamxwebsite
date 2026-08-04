@@ -3,10 +3,15 @@ import { requireAdmin } from "@/lib/cms/auth";
 import { readCms, updateCms, type CmsContact } from "@/lib/cms/store";
 
 export async function GET() {
-  const ok = await requireAdmin();
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const data = await readCms();
-  return NextResponse.json(data.contact);
+  try {
+    const ok = await requireAdmin();
+    if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const data = await readCms();
+    return NextResponse.json(data.contact);
+  } catch (err) {
+    console.error("[admin/contact GET]", err);
+    return NextResponse.json({ error: "Failed to load contact" }, { status: 500 });
+  }
 }
 
 export async function PUT(request: Request) {

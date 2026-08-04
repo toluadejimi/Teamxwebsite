@@ -70,7 +70,9 @@ export type CmsData = {
   chats: ChatConversation[];
 };
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.VERCEL
+  ? path.join("/tmp", "teamx-data")
+  : path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "cms.json");
 const SESSION_COOKIE = "teamx_admin_session";
 
@@ -204,21 +206,37 @@ function defaultData(): CmsData {
   };
 }
 
+/** In-memory fallback for read-only hosts (Vercel serverless) */
+let memoryStore: CmsData | null = null;
+
 async function ensureStore(): Promise<CmsData> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  if (memoryStore) return memoryStore;
+
   try {
-    const raw = await fs.readFile(DATA_FILE, "utf8");
-    const parsed = JSON.parse(raw) as CmsData;
-    return {
-      contact: parsed.contact ?? defaultContact,
-      images: parsed.images?.length ? parsed.images : defaultImageCatalog,
-      jobs: parsed.jobs?.length ? parsed.jobs : defaultJobs,
-      chats: parsed.chats ?? [],
-    };
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    try {
+      const raw = await fs.readFile(DATA_FILE, "utf8");
+      const parsed = JSON.parse(raw) as CmsData;
+      memoryStore = {
+        contact: parsed.contact ?? defaultContact,
+        images: parsed.images?.length ? parsed.images : defaultImageCatalog,
+        jobs: parsed.jobs?.length ? parsed.jobs : defaultJobs,
+        chats: parsed.chats ?? [],
+      };
+      return memoryStore;
+    } catch {
+      memoryStore = defaultData();
+      try {
+        await fs.writeFile(DATA_FILE, JSON.stringify(memoryStore, null, 2), "utf8");
+      } catch {
+        /* read-only FS — keep memory only */
+      }
+      return memoryStore;
+    }
   } catch {
-    const data = defaultData();
-    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
-    return data;
+    // Vercel / read-only: serve defaults from memory
+    memoryStore = defaultData();
+    return memoryStore;
   }
 }
 
@@ -227,15 +245,20 @@ export async function readCms(): Promise<CmsData> {
 }
 
 export async function writeCms(data: CmsData): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
+  memoryStore = data;
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
+  } catch {
+    /* persist in memory for this serverless instance only */
+  }
 }
 
 export async function updateCms(
   updater: (data: CmsData) => CmsData | Promise<CmsData>
 ): Promise<CmsData> {
   const current = await readCms();
-  const next = await updater(current);
+  const next = await updater(structuredClone(current));
   await writeCms(next);
   return next;
 }

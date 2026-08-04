@@ -9,10 +9,15 @@ import {
 } from "@/lib/cms/store";
 
 export async function GET() {
-  const ok = await requireAdmin();
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const data = await readCms();
-  return NextResponse.json(data.jobs);
+  try {
+    const ok = await requireAdmin();
+    if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const data = await readCms();
+    return NextResponse.json(data.jobs);
+  } catch (err) {
+    console.error("[admin/jobs GET]", err);
+    return NextResponse.json({ error: "Failed to load jobs" }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {

@@ -37,6 +37,17 @@ export async function POST(request: Request) {
   const ok = await requireAdmin();
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Vercel filesystem is read-only except /tmp, which isn't publicly served
+  if (process.env.VERCEL) {
+    return NextResponse.json(
+      {
+        error:
+          "File upload isn't available on Vercel hosting. Paste an image URL instead.",
+      },
+      { status: 400 }
+    );
+  }
+
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {

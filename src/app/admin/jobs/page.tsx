@@ -227,13 +227,18 @@ export default function AdminJobsPage() {
 
   useEffect(() => {
     (async () => {
-      const me = await fetch("/api/admin/me");
-      if (!me.ok) {
-        router.replace("/admin/login");
-        return;
+      try {
+        const me = await fetch("/api/admin/me", { credentials: "include" });
+        if (!me.ok) {
+          router.replace("/admin/login");
+          return;
+        }
+        await loadJobs();
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false);
       }
-      await loadJobs();
-      setLoading(false);
     })();
   }, [router, loadJobs]);
 

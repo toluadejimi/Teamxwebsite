@@ -82,16 +82,21 @@ export default function AdminChatPage() {
 
   useEffect(() => {
     (async () => {
-      const me = await fetch("/api/admin/me");
-      if (!me.ok) {
-        router.replace("/admin/login");
-        return;
+      try {
+        const me = await fetch("/api/admin/me", { credentials: "include" });
+        if (!me.ok) {
+          router.replace("/admin/login");
+          return;
+        }
+        const data = await loadChats();
+        if (data?.length) {
+          setSelectedId((prev) => prev ?? data[0].id);
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false);
       }
-      const data = await loadChats();
-      if (data?.length) {
-        setSelectedId((prev) => prev ?? data[0].id);
-      }
-      setLoading(false);
     })();
   }, [router, loadChats]);
 

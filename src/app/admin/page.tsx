@@ -5,36 +5,64 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Briefcase, ImageIcon, MessageSquare, Phone } from "lucide-react";
 
+async function fetchJson(url: string) {
+  const res = await fetch(url, { cache: "no-store", credentials: "include" });
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
+  return res.json();
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
   const [stats, setStats] = useState({ jobs: 0, chats: 0, unread: 0, images: 0 });
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
-      const me = await fetch("/api/admin/me", { cache: "no-store" });
-      if (!me.ok) {
-        router.replace("/admin/login");
-        return;
+      try {
+        const me = await fetch("/api/admin/me", {
+          cache: "no-store",
+          credentials: "include",
+        });
+        if (!me.ok) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        const [jobs, chats, images] = await Promise.all([
+          fetchJson("/api/admin/jobs").catch(() => []),
+          fetchJson("/api/admin/chats").catch(() => []),
+          fetchJson("/api/admin/images").catch(() => []),
+        ]);
+
+        if (cancelled) return;
+
+        setStats({
+          jobs: Array.isArray(jobs) ? jobs.length : 0,
+          chats: Array.isArray(chats) ? chats.length : 0,
+          unread: Array.isArray(chats)
+            ? chats.reduce(
+                (n: number, c: { unreadAdmin?: number }) =>
+                  n + (c.unreadAdmin || 0),
+                0
+              )
+            : 0,
+          images: Array.isArray(images) ? images.length : 0,
+        });
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Failed to load dashboard");
+        }
+      } finally {
+        if (!cancelled) setReady(true);
       }
-      const [jobs, chats, images] = await Promise.all([
-        fetch("/api/admin/jobs").then((r) => r.json()),
-        fetch("/api/admin/chats").then((r) => r.json()),
-        fetch("/api/admin/images").then((r) => r.json()),
-      ]);
-      setStats({
-        jobs: Array.isArray(jobs) ? jobs.length : 0,
-        chats: Array.isArray(chats) ? chats.length : 0,
-        unread: Array.isArray(chats)
-          ? chats.reduce(
-              (n: number, c: { unreadAdmin?: number }) => n + (c.unreadAdmin || 0),
-              0
-            )
-          : 0,
-        images: Array.isArray(images) ? images.length : 0,
-      });
-      setReady(true);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (!ready) {
@@ -85,6 +113,11 @@ export default function AdminDashboardPage() {
       <p className="mt-1 text-sm text-slate-400">
         Manage website content, careers, and visitor chat.
       </p>
+      {error && (
+        <p className="mt-3 text-sm text-amber-400">
+          Some data could not load ({error}). You can still open the sections below.
+        </p>
+      )}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon;

@@ -21,13 +21,45 @@ export default function AdminContactPage() {
 
   useEffect(() => {
     (async () => {
-      const me = await fetch("/api/admin/me");
-      if (!me.ok) {
-        router.replace("/admin/login");
-        return;
+      try {
+        const me = await fetch("/api/admin/me", { credentials: "include" });
+        if (!me.ok) {
+          router.replace("/admin/login");
+          return;
+        }
+        const data = await fetch("/api/admin/contact", {
+          credentials: "include",
+        }).then((r) => r.json());
+        if (data?.email) setContact(data);
+        else {
+          setContact({
+            companyName: "Team X Technologies Ltd",
+            email: "hello@teamxtech.com",
+            phone: "+234 1 234 5678",
+            whatsapp: "2348012345678",
+            supportEmail: "support@teamxtech.com",
+            offices: [
+              {
+                city: "Lagos",
+                country: "Nigeria",
+                address: "12 Admiralty Way, Lekki Phase 1, Lagos",
+                phone: "+234 1 234 5678",
+                email: "lagos@teamxtech.com",
+                isHeadquarters: true,
+              },
+            ],
+          });
+        }
+      } catch {
+        setContact({
+          companyName: "Team X Technologies Ltd",
+          email: "hello@teamxtech.com",
+          phone: "+234 1 234 5678",
+          whatsapp: "2348012345678",
+          supportEmail: "support@teamxtech.com",
+          offices: [],
+        });
       }
-      const data = await fetch("/api/admin/contact").then((r) => r.json());
-      setContact(data);
     })();
   }, [router]);
 

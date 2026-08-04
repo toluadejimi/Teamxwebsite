@@ -12,13 +12,19 @@ export default function AdminImagesPage() {
 
   useEffect(() => {
     (async () => {
-      const me = await fetch("/api/admin/me");
-      if (!me.ok) {
-        router.replace("/admin/login");
-        return;
+      try {
+        const me = await fetch("/api/admin/me", { credentials: "include" });
+        if (!me.ok) {
+          router.replace("/admin/login");
+          return;
+        }
+        const data = await fetch("/api/admin/images", {
+          credentials: "include",
+        }).then((r) => r.json());
+        setImages(Array.isArray(data) ? data : []);
+      } catch {
+        setImages([]);
       }
-      const data = await fetch("/api/admin/images").then((r) => r.json());
-      setImages(Array.isArray(data) ? data : []);
     })();
   }, [router]);
 
