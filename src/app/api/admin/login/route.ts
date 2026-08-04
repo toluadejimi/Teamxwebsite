@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import {
   PENDING_COOKIE,
   SESSION_COOKIE,
   clearFailedAttempts,
   cookieOptions,
   isLockedOut,
+  isTotpRequired,
   isTotpEnabled,
   issueToken,
   registerFailedAttempt,
   revokeSession,
   verifyPassword,
 } from "@/lib/cms/auth";
-import { cookies } from "next/headers";
 
 export async function POST(request: Request) {
   const lock = await isLockedOut();
@@ -32,15 +33,29 @@ export async function POST(request: Request) {
 
   if (!body?.password || !verifyPassword(body.password)) {
     await registerFailedAttempt();
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    return NextResponse.json({ error: "Incorrect password." }, { status: 401 });
   }
 
   await clearFailedAttempts();
 
-  // Clear any prior session
   const jar = await cookies();
   revokeSession(jar.get(SESSION_COOKIE)?.value);
   revokeSession(jar.get(PENDING_COOKIE)?.value);
+
+  const totpRequired = await isTotpRequired();
+
+  // Vercel without writable FS / without ADMIN_TOTP_SECRET → password-only login
+  if (!totpRequired) {
+    const { token, maxAge } = issueToken("full");
+    const res = NextResponse.json({
+      ok: true,
+      requires2fa: false,
+      setupRequired: false,
+    });
+    res.cookies.set(SESSION_COOKIE, token, cookieOptions(maxAge));
+    res.cookies.set(PENDING_COOKIE, "", { ...cookieOptions(0), maxAge: 0 });
+    return res;
+  }
 
   const totpEnabled = await isTotpEnabled();
   const { token, maxAge } = issueToken("pending");

@@ -1,19 +1,13 @@
-import { createHmac, randomBytes, timingSafeEqual, createHash } from "crypto";
+import { createHmac, timingSafeEqual, createHash, randomBytes } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
 import { cookies } from "next/headers";
 import * as OTPAuth from "otpauth";
 import QRCode from "qrcode";
-import {
-  SESSION_COOKIE,
-  createSessionToken,
-  getAdminPassword,
-  hashToken,
-  safeEqual,
-} from "./store";
+import { SESSION_COOKIE, getAdminPassword } from "./store";
 
 export const PENDING_COOKIE = "teamx_admin_pending";
-export const SETUP_COOKIE = "teamx_admin_setup";
+export const TOTP_SETUP_COOKIE = "teamx_totp_setup";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const SECURITY_FILE = path.join(DATA_DIR, "security.json");
@@ -25,16 +19,94 @@ type SecurityConfig = {
   lockUntil: number | null;
 };
 
-type SessionRecord = {
-  exp: number;
-  kind: "full" | "pending" | "setup";
-};
+type SessionKind = "full" | "pending";
 
-const sessions = new Map<string, SessionRecord>();
-const SESSION_TTL = 1000 * 60 * 60 * 12; // 12h full
-const PENDING_TTL = 1000 * 60 * 10; // 10m pending 2FA
-const MAX_ATTEMPTS = 5;
-const LOCK_MS = 1000 * 60 * 15; // 15m lockout
+const SESSION_TTL = 60 * 60 * 12; // 12h seconds
+const PENDING_TTL = 60 * 10; // 10m seconds
+const MAX_ATTEMPTS = 8;
+const LOCK_MS = 1000 * 60 * 15;
+
+function signingKey(): string {
+  return (
+    process.env.ADMIN_SESSION_SECRET ||
+    process.env.ADMIN_PASSWORD ||
+    "TeamX@Admin2024-session"
+  );
+}
+
+function b64url(input: string | Buffer): string {
+  return Buffer.from(input)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function fromB64url(input: string): string {
+  const pad = input.length % 4 === 0 ? "" : "=".repeat(4 - (input.length % 4));
+  return Buffer.from(input.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64").toString(
+    "utf8"
+  );
+}
+
+function signPayload(payload: string): string {
+  return createHmac("sha256", signingKey()).update(payload).digest("base64url");
+}
+
+/** Stateless signed token — works on Vercel serverless */
+export function issueToken(kind: SessionKind): { token: string; maxAge: number } {
+  const maxAge = kind === "full" ? SESSION_TTL : PENDING_TTL;
+  const exp = Math.floor(Date.now() / 1000) + maxAge;
+  const payload = b64url(JSON.stringify({ kind, exp }));
+  const token = `${payload}.${signPayload(payload)}`;
+  return { token, maxAge };
+}
+
+export function issueSession() {
+  return issueToken("full");
+}
+
+export function revokeSession(_token?: string) {
+  // Stateless cookies — cleared by setting maxAge 0 on the response
+}
+
+export function verifySessionToken(
+  token: string | undefined,
+  kind: SessionKind = "full"
+): boolean {
+  if (!token || !token.includes(".")) return false;
+  const [payload, sig] = token.split(".");
+  if (!payload || !sig) return false;
+  const expected = signPayload(payload);
+  try {
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
+    const data = JSON.parse(fromB64url(payload)) as { kind: SessionKind; exp: number };
+    if (data.kind !== kind) return false;
+    if (data.exp < Math.floor(Date.now() / 1000)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function verifyPassword(password: string): boolean {
+  const expected = getAdminPassword();
+  const a = createHash("sha256").update(password).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
+
+function cookieOptions(maxAge: number) {
+  return {
+    httpOnly: true as const,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge,
+  };
+}
 
 function defaultSecurity(): SecurityConfig {
   return {
@@ -45,80 +117,55 @@ function defaultSecurity(): SecurityConfig {
   };
 }
 
+async function canUseFs(): Promise<boolean> {
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    const probe = path.join(DATA_DIR, ".write-probe");
+    await fs.writeFile(probe, "ok", "utf8");
+    await fs.unlink(probe).catch(() => undefined);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function readSecurity(): Promise<SecurityConfig> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  // Prefer env-configured TOTP on serverless (Vercel)
+  const envSecret = process.env.ADMIN_TOTP_SECRET?.trim() || null;
+  if (envSecret) {
+    return {
+      ...defaultSecurity(),
+      totpSecret: envSecret,
+      totpEnabled: true,
+    };
+  }
+
+  if (!(await canUseFs())) {
+    return defaultSecurity();
+  }
+
   try {
     const raw = await fs.readFile(SECURITY_FILE, "utf8");
     return { ...defaultSecurity(), ...JSON.parse(raw) };
   } catch {
     const data = defaultSecurity();
-    await fs.writeFile(SECURITY_FILE, JSON.stringify(data, null, 2), "utf8");
+    try {
+      await fs.writeFile(SECURITY_FILE, JSON.stringify(data, null, 2), "utf8");
+    } catch {
+      /* read-only FS */
+    }
     return data;
   }
 }
 
 async function writeSecurity(data: SecurityConfig): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(SECURITY_FILE, JSON.stringify(data, null, 2), "utf8");
-}
-
-function pruneSessions() {
-  const now = Date.now();
-  for (const [key, rec] of sessions) {
-    if (rec.exp < now) sessions.delete(key);
+  if (!(await canUseFs())) return;
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(SECURITY_FILE, JSON.stringify(data, null, 2), "utf8");
+  } catch {
+    /* ignore on Vercel */
   }
-}
-
-function cookieOptions(maxAge: number) {
-  return {
-    httpOnly: true as const,
-    sameSite: "strict" as const,
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge,
-  };
-}
-
-export function issueToken(
-  kind: SessionRecord["kind"]
-): { token: string; maxAge: number } {
-  pruneSessions();
-  const token = createSessionToken();
-  const ttl = kind === "full" ? SESSION_TTL : PENDING_TTL;
-  sessions.set(hashToken(token), { exp: Date.now() + ttl, kind });
-  return { token, maxAge: ttl / 1000 };
-}
-
-/** @deprecated use issueToken('full') */
-export function issueSession() {
-  return issueToken("full");
-}
-
-export function revokeSession(token: string | undefined) {
-  if (!token) return;
-  sessions.delete(hashToken(token));
-}
-
-export function verifySessionToken(
-  token: string | undefined,
-  kind: SessionRecord["kind"] = "full"
-): boolean {
-  if (!token) return false;
-  pruneSessions();
-  const rec = sessions.get(hashToken(token));
-  if (!rec || rec.exp < Date.now()) {
-    if (token) sessions.delete(hashToken(token));
-    return false;
-  }
-  return rec.kind === kind;
-}
-
-export function verifyPassword(password: string): boolean {
-  const expected = getAdminPassword();
-  // Pad to constant-time compare even if lengths differ
-  const a = createHash("sha256").update(password).digest();
-  const b = createHash("sha256").update(expected).digest();
-  return timingSafeEqual(a, b);
 }
 
 export async function isLockedOut(): Promise<{ locked: boolean; retryAfter?: number }> {
@@ -136,6 +183,9 @@ export async function isLockedOut(): Promise<{ locked: boolean; retryAfter?: num
 
 export async function registerFailedAttempt(): Promise<void> {
   const sec = await readSecurity();
+  // Don't persist lockout when TOTP comes from env-only (no FS) — avoid false locks
+  if (!(await canUseFs()) && process.env.ADMIN_TOTP_SECRET) return;
+  if (!(await canUseFs())) return;
   sec.failedAttempts += 1;
   if (sec.failedAttempts >= MAX_ATTEMPTS) {
     sec.lockUntil = Date.now() + LOCK_MS;
@@ -152,8 +202,20 @@ export async function clearFailedAttempts(): Promise<void> {
 }
 
 export async function isTotpEnabled(): Promise<boolean> {
+  if (process.env.ADMIN_TOTP_SECRET?.trim()) return true;
   const sec = await readSecurity();
   return !!(sec.totpEnabled && sec.totpSecret);
+}
+
+/** On read-only hosts (Vercel) without ADMIN_TOTP_SECRET, skip 2FA so login still works */
+export async function isTotpRequired(): Promise<boolean> {
+  if (process.env.ADMIN_TOTP_SECRET?.trim()) return true;
+  if (await canUseFs()) {
+    const sec = await readSecurity();
+    // Require setup or verify if we can persist
+    return true;
+  }
+  return false;
 }
 
 function getTotp(secret: string) {
@@ -183,7 +245,6 @@ export async function beginTotpSetup(): Promise<{
     color: { dark: "#0b1220", light: "#ffffff" },
   });
 
-  // Store pending secret (not enabled until verified)
   const sec = await readSecurity();
   sec.totpSecret = base32;
   sec.totpEnabled = false;
@@ -192,12 +253,14 @@ export async function beginTotpSetup(): Promise<{
   return { secret: base32, uri, qrDataUrl };
 }
 
-export async function verifyAndEnableTotp(code: string): Promise<boolean> {
+export async function verifyAndEnableTotp(code: string, setupSecret?: string): Promise<boolean> {
   const sec = await readSecurity();
-  if (!sec.totpSecret) return false;
-  const totp = getTotp(sec.totpSecret);
+  const secret = setupSecret || sec.totpSecret;
+  if (!secret) return false;
+  const totp = getTotp(secret);
   const delta = totp.validate({ token: code.replace(/\s/g, ""), window: 1 });
   if (delta === null) return false;
+  sec.totpSecret = secret;
   sec.totpEnabled = true;
   await writeSecurity(sec);
   return true;
@@ -223,12 +286,4 @@ export async function requirePending(): Promise<boolean> {
   return verifySessionToken(token, "pending");
 }
 
-export { SESSION_COOKIE, cookieOptions };
-
-/** Encrypt-ish obfuscation for displaying recovery hint — not for secrets */
-export function fingerprintEnv(): string {
-  const key = process.env.ADMIN_PASSWORD || "default";
-  return createHmac("sha256", "teamx").update(key).digest("hex").slice(0, 8);
-}
-
-export { safeEqual, createSessionToken, hashToken, randomBytes };
+export { SESSION_COOKIE, cookieOptions, randomBytes };

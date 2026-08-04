@@ -33,6 +33,13 @@ export default function AdminLoginPage() {
       return;
     }
 
+    // Password-only (e.g. Vercel without 2FA secret configured)
+    if (!data.requires2fa) {
+      router.push("/admin");
+      router.refresh();
+      return;
+    }
+
     if (data.setupRequired) {
       const setup = await fetch("/api/admin/2fa");
       const setupData = await setup.json();
@@ -121,8 +128,8 @@ export default function AdminLoginPage() {
           <form onSubmit={onTotpSubmit} className="space-y-4">
             <p className="text-sm leading-relaxed text-slate-400">
               Scan this QR code with{" "}
-              <strong className="text-slate-200">Google Authenticator</strong>,{" "}
-              Authy, or 1Password. Then enter the 6-digit code to finish setup.
+              <strong className="text-slate-200">Google Authenticator</strong>, Authy,
+              or 1Password. Then enter the 6-digit code to finish setup.
             </p>
             {qrDataUrl && (
               // eslint-disable-next-line @next/next/no-img-element
