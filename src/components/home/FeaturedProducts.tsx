@@ -5,10 +5,11 @@ import { Section } from "@/components/ui/Section";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/shared/Reveal";
-import { getFeaturedPortfolio } from "@/lib/data/portfolio";
+import { readCms } from "@/lib/cms/store";
 
-export function FeaturedProducts() {
-  const products = getFeaturedPortfolio(4);
+export async function FeaturedProducts() {
+  const cms = await readCms();
+  const products = cms.portfolio.filter((p) => p.active !== false).slice(0, 4);
 
   return (
     <Section
@@ -31,6 +32,10 @@ export function FeaturedProducts() {
                   fill
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                   sizes="(max-width: 1024px) 100vw, 40vw"
+                  unoptimized={
+                    product.image.startsWith("data:") ||
+                    product.image.startsWith("/uploads/")
+                  }
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent lg:bg-gradient-to-r" />
               </div>

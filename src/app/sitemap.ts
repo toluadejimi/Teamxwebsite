@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getSiteUrl } from "@/lib/seo";
 import { blogPosts } from "@/lib/data/blog";
-import { portfolioProjects } from "@/lib/data/portfolio";
 import { readCms } from "@/lib/cms/store";
 
 const staticRoutes = [
@@ -43,14 +42,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }));
 
-  const portfolioEntries: MetadataRoute.Sitemap = portfolioProjects.map(
-    (project) => ({
+  const portfolioEntries: MetadataRoute.Sitemap = cms.portfolio
+    .filter((p) => p.active !== false)
+    .map((project) => ({
       url: getSiteUrl(`/portfolio/${project.slug}`),
       lastModified: now,
-      changeFrequency: "monthly",
+      changeFrequency: "monthly" as const,
       priority: 0.7,
-    })
-  );
+    }));
 
   const caseStudyEntries: MetadataRoute.Sitemap = cms.caseStudies
     .filter((s) => s.active !== false)

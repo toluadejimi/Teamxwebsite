@@ -5,7 +5,6 @@ import { ArrowRight } from "lucide-react";
 import {
   getIndustryBySlug,
   getServicesByCategory,
-  getPortfolioByIndustry,
   industries,
 } from "@/lib/data";
 import { readCms } from "@/lib/cms/store";
@@ -16,6 +15,8 @@ import { ServiceCard } from "@/components/ui/Card";
 import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
 import { Badge } from "@/components/ui/Badge";
+
+export const dynamic = "force-dynamic";
 
 interface IndustryPageProps {
   params: Promise<{ slug: string }>;
@@ -162,8 +163,10 @@ export default async function IndustryDetailPage({ params }: IndustryPageProps) 
   const Icon = getIcon(industry.icon);
   const categorySlug = industryServiceMap[slug] ?? "enterprise-software";
   const relatedServices = getServicesByCategory(categorySlug).slice(0, 6);
-  const portfolioItems = getPortfolioByIndustry(industry.name).slice(0, 3);
   const cms = await readCms();
+  const portfolioItems = cms.portfolio
+    .filter((p) => p.active !== false && p.industry === industry.name)
+    .slice(0, 3);
   const relatedCaseStudies = cms.caseStudies
     .filter((study) => study.active !== false && study.industry === industry.name)
     .slice(0, 2);

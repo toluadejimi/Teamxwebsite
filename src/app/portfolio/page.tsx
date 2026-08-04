@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { portfolioProjects } from "@/lib/data";
+import { readCms } from "@/lib/cms/store";
 import { Reveal } from "@/components/shared/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
 import { ServiceCard } from "@/components/ui/Card";
@@ -7,14 +7,18 @@ import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
 import { Badge } from "@/components/ui/Badge";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Portfolio",
   description:
-    "Explore 18+ enterprise software projects delivered by Team X Technologies across banking, healthcare, government, education, and more.",
+    "Explore enterprise software projects delivered by Team X Technologies across banking, healthcare, government, education, and more.",
 };
 
-export default function PortfolioPage() {
-  const industries = [...new Set(portfolioProjects.map((p) => p.industry))];
+export default async function PortfolioPage() {
+  const cms = await readCms();
+  const projects = cms.portfolio.filter((p) => p.active !== false);
+  const industries = [...new Set(projects.map((p) => p.industry))];
 
   return (
     <>
@@ -39,12 +43,12 @@ export default function PortfolioPage() {
       </Section>
 
       <Section
-        title={`${portfolioProjects.length} Enterprise Projects`}
+        title={`${projects.length} Enterprise Projects`}
         description="From core banking modernization to citizen portals and telemedicine networks—explore the depth and breadth of our delivery experience."
         className="bg-surface/50 pt-0"
       >
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {portfolioProjects.map((project, index) => (
+          {projects.map((project, index) => (
             <Reveal key={project.slug} delay={(index % 6) * 0.05}>
               <ServiceCard
                 title={project.title}

@@ -2,26 +2,29 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
-import { getPortfolioBySlug, portfolioProjects } from "@/lib/data";
+import { readCms } from "@/lib/cms/store";
 import { Reveal } from "@/components/shared/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
 import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
 import { Badge } from "@/components/ui/Badge";
 
+export const dynamic = "force-dynamic";
+
 interface PortfolioPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateStaticParams() {
-  return portfolioProjects.map((project) => ({ slug: project.slug }));
+async function getProject(slug: string) {
+  const cms = await readCms();
+  return cms.portfolio.find((p) => p.slug === slug && p.active !== false);
 }
 
 export async function generateMetadata({
   params,
 }: PortfolioPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const project = getPortfolioBySlug(slug);
+  const project = await getProject(slug);
 
   if (!project) {
     return { title: "Project Not Found" };
@@ -33,14 +36,16 @@ export async function generateMetadata({
     openGraph: {
       title: project.title,
       description: project.description,
-      images: [{ url: project.image }],
+      images: project.image.startsWith("data:")
+        ? undefined
+        : [{ url: project.image }],
     },
   };
 }
 
 export default async function PortfolioDetailPage({ params }: PortfolioPageProps) {
   const { slug } = await params;
-  const project = getPortfolioBySlug(slug);
+  const project = await getProject(slug);
 
   if (!project) {
     notFound();
@@ -73,7 +78,7 @@ export default async function PortfolioDetailPage({ params }: PortfolioPageProps
       <Section eyebrow="Gallery" title="Project Highlights" className="bg-surface/50 pt-8">
         <div className="grid gap-4 md:grid-cols-3">
           {project.gallery.map((image, index) => (
-            <Reveal key={image} delay={index * 0.06}>
+            <Reveal key={`${image}-${index}`} delay={index * 0.06}>
               <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-border">
                 <Image
                   src={image}
@@ -81,6 +86,9 @@ export default async function PortfolioDetailPage({ params }: PortfolioPageProps
                   fill
                   className="object-cover"
                   sizes="(max-width: 768px) 100vw, 33vw"
+                  unoptimized={
+                    image.startsWith("data:") || image.startsWith("/uploads/")
+                  }
                 />
               </div>
             </Reveal>

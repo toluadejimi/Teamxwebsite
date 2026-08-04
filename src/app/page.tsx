@@ -17,6 +17,9 @@ import { PartnersSection } from "@/components/home/PartnersSection";
 import { BlogPreview } from "@/components/home/BlogPreview";
 import { FAQSection } from "@/components/home/FAQSection";
 
+/** Always render from CMS — do not serve a build-time static snapshot */
+export const dynamic = "force-dynamic";
+
 const carouselTestimonials = testimonials.map(
   ({ quote, author, role, company }) => ({
     quote,

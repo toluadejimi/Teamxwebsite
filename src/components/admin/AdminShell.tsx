@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   Briefcase,
   FileText,
+  FolderKanban,
   ImageIcon,
   Inbox,
   LayoutDashboard,
@@ -22,6 +23,7 @@ const links = [
   { href: "/admin/images", label: "Images & Logo", icon: ImageIcon },
   { href: "/admin/contact", label: "Contact Info", icon: Phone },
   { href: "/admin/services", label: "Services", icon: Layers },
+  { href: "/admin/portfolio", label: "Portfolio", icon: FolderKanban },
   { href: "/admin/case-studies", label: "Case Studies", icon: FileText },
   { href: "/admin/jobs", label: "Job Postings", icon: Briefcase },
   { href: "/admin/chat", label: "Live Chat", icon: MessageSquare },
@@ -44,6 +46,12 @@ function AdminGateLoader() {
   );
 }
 
+type StorageInfo = {
+  backend: string;
+  persistent: boolean;
+  message: string;
+};
+
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -51,6 +59,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [auth, setAuth] = useState<"checking" | "ok" | "denied">(
     isLogin ? "ok" : "checking"
   );
+  const [storage, setStorage] = useState<StorageInfo | null>(null);
 
   useEffect(() => {
     if (isLogin) {
@@ -71,6 +80,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           return;
         }
         setAuth("ok");
+        const storageRes = await fetch("/api/admin/storage", {
+          cache: "no-store",
+          credentials: "include",
+        });
+        if (!cancelled && storageRes.ok) {
+          setStorage((await storageRes.json()) as StorageInfo);
+        }
       } catch {
         if (cancelled) return;
         setAuth("denied");
@@ -177,6 +193,24 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </button>
           </header>
           <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-8">
+            {storage && !storage.persistent && (
+              <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                <p className="font-medium text-amber-200">
+                  Edits will not stick after reload
+                </p>
+                <p className="mt-1 text-amber-100/80">
+                  {storage.message} Add{" "}
+                  <code className="rounded bg-black/30 px-1">
+                    UPSTASH_REDIS_REST_URL
+                  </code>{" "}
+                  and{" "}
+                  <code className="rounded bg-black/30 px-1">
+                    UPSTASH_REDIS_REST_TOKEN
+                  </code>{" "}
+                  in Vercel env vars, then redeploy.
+                </p>
+              </div>
+            )}
             {children}
           </main>
         </div>

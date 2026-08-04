@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   Briefcase,
   FileText,
+  FolderKanban,
   ImageIcon,
   Inbox,
   Layers,
@@ -30,6 +31,7 @@ export default function AdminDashboardPage() {
     images: 0,
     caseStudies: 0,
     services: 0,
+    portfolio: 0,
     leads: 0,
   });
 
@@ -47,13 +49,14 @@ export default function AdminDashboardPage() {
           return;
         }
 
-        const [jobs, chats, images, caseStudies, services, leads] =
+        const [jobs, chats, images, caseStudies, services, portfolio, leads] =
           await Promise.all([
             fetchJson("/api/admin/jobs").catch(() => []),
             fetchJson("/api/admin/chats").catch(() => []),
             fetchJson("/api/admin/images").catch(() => []),
             fetchJson("/api/admin/case-studies").catch(() => []),
             fetchJson("/api/admin/services").catch(() => []),
+            fetchJson("/api/admin/portfolio").catch(() => ({ items: [] })),
             fetchJson("/api/admin/leads").catch(() => ({})),
           ]);
 
@@ -65,6 +68,12 @@ export default function AdminDashboardPage() {
             if (!Array.isArray(list)) return n;
             return n + list.filter((e: { status?: string }) => e.status === "new").length;
           }, 0);
+
+        const portfolioItems = Array.isArray(portfolio?.items)
+          ? portfolio.items
+          : Array.isArray(portfolio)
+            ? portfolio
+            : [];
 
         setStats({
           jobs: Array.isArray(jobs) ? jobs.length : 0,
@@ -79,6 +88,7 @@ export default function AdminDashboardPage() {
           images: Array.isArray(images) ? images.length : 0,
           caseStudies: Array.isArray(caseStudies) ? caseStudies.length : 0,
           services: Array.isArray(services) ? services.length : 0,
+          portfolio: portfolioItems.length,
           leads: newLeads,
         });
       } catch (e) {
@@ -134,6 +144,13 @@ export default function AdminDashboardPage() {
       value: stats.services,
       icon: Layers,
       hint: "Edit offerings & banners",
+    },
+    {
+      href: "/admin/portfolio",
+      label: "Portfolio",
+      value: stats.portfolio,
+      icon: FolderKanban,
+      hint: "Create & edit portfolio projects",
     },
     {
       href: "/admin/case-studies",

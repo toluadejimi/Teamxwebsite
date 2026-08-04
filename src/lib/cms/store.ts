@@ -1,6 +1,3 @@
-import { randomBytes, timingSafeEqual, createHash } from "crypto";
-import { promises as fs } from "fs";
-import path from "path";
 import {
   caseStudies as seedCaseStudies,
   type CaseStudy,
@@ -9,7 +6,21 @@ import {
   allServices as seedServices,
   type Service,
 } from "@/lib/data/services";
+import {
+  portfolioProjects as seedPortfolio,
+  type PortfolioProject,
+} from "@/lib/data/portfolio";
 import { buildDefaultImageCatalog } from "@/lib/cms/media";
+import {
+  getStorageBackend,
+  hasRedis,
+  loadPersistedJson,
+  savePersistedJson,
+  storageStatusMessage,
+} from "@/lib/cms/persist";
+import { promises as fs } from "fs";
+import path from "path";
+import { randomBytes, timingSafeEqual, createHash } from "crypto";
 
 export type CmsJob = {
   id: string;
@@ -82,6 +93,11 @@ export type CmsService = Service & {
   active: boolean;
 };
 
+export type CmsPortfolio = PortfolioProject & {
+  id: string;
+  active: boolean;
+};
+
 export type LeadStatus = "new" | "read" | "archived";
 
 export type CmsEnquiry = {
@@ -143,6 +159,7 @@ export type CmsData = {
   chats: ChatConversation[];
   caseStudies: CmsCaseStudy[];
   services: CmsService[];
+  portfolio: CmsPortfolio[];
   enquiries: CmsEnquiry[];
   demoRequests: CmsDemoRequest[];
   quoteRequests: CmsQuoteRequest[];
@@ -271,6 +288,12 @@ const defaultServices: CmsService[] = seedServices.map((service) => ({
   active: true,
 }));
 
+const defaultPortfolio: CmsPortfolio[] = seedPortfolio.map((project) => ({
+  ...project,
+  id: `pf_${project.slug}`,
+  active: true,
+}));
+
 function mergeImageCatalog(existing?: CmsImageEntry[]): CmsImageEntry[] {
   const byKey = new Map((existing || []).map((img) => [img.key, img]));
   const merged = defaultImageCatalog.map((def) => {
@@ -285,6 +308,24 @@ function mergeImageCatalog(existing?: CmsImageEntry[]): CmsImageEntry[] {
   return merged;
 }
 
+function normalizeCms(parsed: Partial<CmsData>): CmsData {
+  return {
+    contact: parsed.contact ?? defaultContact,
+    images: mergeImageCatalog(parsed.images),
+    jobs: parsed.jobs?.length ? parsed.jobs : defaultJobs,
+    chats: parsed.chats ?? [],
+    caseStudies: parsed.caseStudies?.length
+      ? parsed.caseStudies
+      : defaultCaseStudies,
+    services: parsed.services?.length ? parsed.services : defaultServices,
+    portfolio: parsed.portfolio?.length ? parsed.portfolio : defaultPortfolio,
+    enquiries: parsed.enquiries ?? [],
+    demoRequests: parsed.demoRequests ?? [],
+    quoteRequests: parsed.quoteRequests ?? [],
+    jobApplications: parsed.jobApplications ?? [],
+  };
+}
+
 function defaultData(): CmsData {
   return {
     contact: defaultContact,
@@ -293,6 +334,7 @@ function defaultData(): CmsData {
     chats: [],
     caseStudies: defaultCaseStudies,
     services: defaultServices,
+    portfolio: defaultPortfolio,
     enquiries: [],
     demoRequests: [],
     quoteRequests: [],
@@ -300,46 +342,58 @@ function defaultData(): CmsData {
   };
 }
 
-/** In-memory fallback for read-only hosts (Vercel serverless) */
+/** In-memory cache for the current serverless instance */
 let memoryStore: CmsData | null = null;
 
-async function ensureStore(): Promise<CmsData> {
-  if (memoryStore) return memoryStore;
-
+async function loadFromFile(): Promise<CmsData> {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
     try {
       const raw = await fs.readFile(DATA_FILE, "utf8");
-      const parsed = JSON.parse(raw) as Partial<CmsData>;
-      memoryStore = {
-        contact: parsed.contact ?? defaultContact,
-        images: mergeImageCatalog(parsed.images),
-        jobs: parsed.jobs?.length ? parsed.jobs : defaultJobs,
-        chats: parsed.chats ?? [],
-        caseStudies: parsed.caseStudies?.length
-          ? parsed.caseStudies
-          : defaultCaseStudies,
-        services: parsed.services?.length ? parsed.services : defaultServices,
-        enquiries: parsed.enquiries ?? [],
-        demoRequests: parsed.demoRequests ?? [],
-        quoteRequests: parsed.quoteRequests ?? [],
-        jobApplications: parsed.jobApplications ?? [],
-      };
-      return memoryStore;
+      return normalizeCms(JSON.parse(raw) as Partial<CmsData>);
     } catch {
-      memoryStore = defaultData();
+      const data = defaultData();
       try {
-        await fs.writeFile(DATA_FILE, JSON.stringify(memoryStore, null, 2), "utf8");
+        await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
       } catch {
-        /* read-only FS — keep memory only */
+        /* ignore */
       }
-      return memoryStore;
+      return data;
     }
   } catch {
-    // Vercel / read-only: serve defaults from memory
+    return defaultData();
+  }
+}
+
+async function ensureStore(): Promise<CmsData> {
+  // Durable Redis path — always re-read so every Vercel instance sees latest edits
+  if (hasRedis()) {
+    try {
+      const raw = await loadPersistedJson();
+      if (raw) {
+        memoryStore = normalizeCms(JSON.parse(raw) as Partial<CmsData>);
+        return memoryStore;
+      }
+      memoryStore = defaultData();
+      await savePersistedJson(JSON.stringify(memoryStore));
+      return memoryStore;
+    } catch (err) {
+      console.error("[cms] Redis load failed, falling back", err);
+      if (memoryStore) return memoryStore;
+      memoryStore = defaultData();
+      return memoryStore;
+    }
+  }
+
+  if (memoryStore) return memoryStore;
+
+  if (getStorageBackend() === "memory") {
     memoryStore = defaultData();
     return memoryStore;
   }
+
+  memoryStore = await loadFromFile();
+  return memoryStore;
 }
 
 export async function readCms(): Promise<CmsData> {
@@ -348,11 +402,28 @@ export async function readCms(): Promise<CmsData> {
 
 export async function writeCms(data: CmsData): Promise<void> {
   memoryStore = data;
+  const json = JSON.stringify(data);
+
+  if (hasRedis()) {
+    try {
+      await savePersistedJson(json);
+      return;
+    } catch (err) {
+      console.error("[cms] Redis save failed", err);
+      throw err;
+    }
+  }
+
+  if (getStorageBackend() === "memory") {
+    /* Vercel without Redis — cannot persist across instances */
+    return;
+  }
+
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
     await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), "utf8");
   } catch {
-    /* persist in memory for this serverless instance only */
+    /* ignore local write errors */
   }
 }
 
@@ -364,6 +435,16 @@ export async function updateCms(
   await writeCms(next);
   return next;
 }
+
+export function getCmsStorageInfo() {
+  return {
+    backend: getStorageBackend(),
+    persistent: getStorageBackend() !== "memory",
+    message: storageStatusMessage(),
+  };
+}
+
+export { storageStatusMessage };
 
 export function getAdminPassword(): string {
   return process.env.ADMIN_PASSWORD || "TeamX@Admin2024";
