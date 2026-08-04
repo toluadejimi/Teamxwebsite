@@ -42,19 +42,28 @@ export function PageHero({
     >
       {resolvedImage && (
         <>
-          <Image
-            src={resolvedImage}
-            alt=""
-            fill
-            priority
-            className="object-cover opacity-20 dark:opacity-10"
-            sizes="100vw"
-            unoptimized={
-              resolvedImage.startsWith("data:") ||
-              (!resolvedImage.includes("images.unsplash.com") &&
-                resolvedImage.startsWith("http"))
-            }
-          />
+          {resolvedImage.startsWith("data:") ||
+          resolvedImage.startsWith("/uploads/") ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={resolvedImage}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover opacity-20 dark:opacity-10"
+            />
+          ) : (
+            <Image
+              src={resolvedImage}
+              alt=""
+              fill
+              priority
+              className="object-cover opacity-20 dark:opacity-10"
+              sizes="100vw"
+              unoptimized={
+                !resolvedImage.includes("images.unsplash.com") &&
+                resolvedImage.startsWith("http")
+              }
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/90 to-background" />
         </>
       )}

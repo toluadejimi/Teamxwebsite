@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
 import type { CmsService } from "@/lib/cms/store";
+import { compressImageFile } from "@/lib/cms/compress-image";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
@@ -114,7 +115,7 @@ function ServiceFormFields({
   uploading,
 }: {
   form: FormState;
-  setForm: (f: FormState) => void;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
   onUpload: (file: File) => void;
   uploading: boolean;
 }) {
@@ -180,24 +181,33 @@ function ServiceFormFields({
           />
         )}
         <input
-          value={form.bannerImage}
+          value={form.bannerImage.startsWith("data:") ? "" : form.bannerImage}
           onChange={(e) => setForm({ ...form, bannerImage: e.target.value })}
-          placeholder="https://… or upload"
+          placeholder={
+            form.bannerImage.startsWith("data:")
+              ? "Uploaded image ready — click Save if not auto-saved"
+              : "https://… or upload a file"
+          }
           className={inputClass}
         />
-        <label className="inline-flex cursor-pointer rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">
-          {uploading ? "Uploading…" : "Upload image"}
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) onUpload(file);
-              e.target.value = "";
-            }}
-          />
-        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="inline-flex cursor-pointer rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">
+            {uploading ? "Uploading…" : "Upload image"}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onUpload(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          <span className="text-[11px] text-slate-500">
+            Images are compressed automatically. On edit, upload saves to the site right away.
+          </span>
+        </div>
       </div>
       {(
         [
@@ -276,25 +286,54 @@ export default function AdminServicesPage() {
     load();
   }, [load]);
 
-  async function uploadBanner(
-    file: File,
-    setForm: (f: FormState) => void,
-    form: FormState
-  ) {
+  async function uploadBanner(file: File, mode: "create" | "edit", service?: CmsService) {
     setUploading(true);
     setMessage("");
-    const body = new FormData();
-    body.append("file", file);
-    const res = await fetch("/api/admin/upload", { method: "POST", body });
-    setUploading(false);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      setMessage(err.error || "Upload failed");
-      return;
+    try {
+      const compressed = await compressImageFile(file);
+      const body = new FormData();
+      body.append("file", compressed);
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setMessage(err.error || "Upload failed");
+        return;
+      }
+      const { url } = (await res.json()) as { url: string };
+      if (!url) {
+        setMessage("Upload returned no image URL");
+        return;
+      }
+
+      if (mode === "edit" && service) {
+        const nextForm = { ...editForm, bannerImage: url };
+        setEditForm(nextForm);
+        const saveRes = await fetch("/api/admin/services", {
+          method: "PUT",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formToPayload(nextForm, service)),
+        });
+        if (!saveRes.ok) {
+          const err = await saveRes.json().catch(() => ({}));
+          setMessage(err.error || "Image uploaded but failed to save service");
+          return;
+        }
+        setMessage("Banner uploaded and saved — check the live service page");
+        await load();
+      } else {
+        setCreateForm((prev) => ({ ...prev, bannerImage: url }));
+        setMessage("Image attached — click Create to publish the service");
+      }
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
     }
-    const { url } = await res.json();
-    setForm({ ...form, bannerImage: url });
-    setMessage("Image uploaded — save the service to apply");
   }
 
   async function createService(e: FormEvent) {
@@ -303,6 +342,7 @@ export default function AdminServicesPage() {
     setMessage("");
     const res = await fetch("/api/admin/services", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(formToPayload(createForm)),
     });
@@ -324,6 +364,7 @@ export default function AdminServicesPage() {
     setMessage("");
     const res = await fetch("/api/admin/services", {
       method: "PUT",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(formToPayload(editForm, service)),
     });
@@ -343,6 +384,7 @@ export default function AdminServicesPage() {
     setBusy(true);
     await fetch(`/api/admin/services?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
+      credentials: "include",
     });
     setBusy(false);
     setMessage("Service deleted");
@@ -407,7 +449,7 @@ export default function AdminServicesPage() {
             form={createForm}
             setForm={setCreateForm}
             uploading={uploading}
-            onUpload={(file) => uploadBanner(file, setCreateForm, createForm)}
+            onUpload={(file) => uploadBanner(file, "create")}
           />
           <div className="mt-4 flex gap-3">
             <button
@@ -495,7 +537,7 @@ export default function AdminServicesPage() {
                         setForm={setEditForm}
                         uploading={uploading}
                         onUpload={(file) =>
-                          uploadBanner(file, setEditForm, editForm)
+                          uploadBanner(file, "edit", service)
                         }
                       />
                       <div className="mt-4 flex gap-3">

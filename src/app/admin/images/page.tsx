@@ -33,6 +33,7 @@ export default function AdminImagesPage() {
     setMessage("");
     const res = await fetch("/api/admin/images", {
       method: "PUT",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key, url }),
     });
@@ -48,17 +49,29 @@ export default function AdminImagesPage() {
 
   async function upload(key: string, file: File) {
     setSaving(key);
-    const form = new FormData();
-    form.append("file", file);
-    const up = await fetch("/api/admin/upload", { method: "POST", body: form });
-    if (!up.ok) {
+    setMessage("");
+    try {
+      const { compressImageFile } = await import("@/lib/cms/compress-image");
+      const compressed = await compressImageFile(file);
+      const form = new FormData();
+      form.append("file", compressed);
+      const up = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: form,
+        credentials: "include",
+      });
+      if (!up.ok) {
+        const err = await up.json().catch(() => ({}));
+        setMessage(err.error || "Upload failed");
+        return;
+      }
+      const { url } = await up.json();
+      await saveUrl(key, url);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Upload failed");
+    } finally {
       setSaving(null);
-      const err = await up.json().catch(() => ({}));
-      setMessage(err.error || "Upload failed");
-      return;
     }
-    const { url } = await up.json();
-    await saveUrl(key, url);
   }
 
   const categories = [...new Set(images.map((i) => i.category))];
@@ -67,8 +80,8 @@ export default function AdminImagesPage() {
     <div className="pb-8">
       <h1 className="text-2xl font-semibold text-white">Images & Logo</h1>
       <p className="mt-1 text-sm text-slate-400">
-        Update the company logo and site images. On Vercel, logo uploads under 400KB
-        are stored in CMS; larger files need an image URL.
+        Update the company logo and site images. Uploads are compressed automatically
+        (max ~2MB on Vercel) and applied immediately.
       </p>
       {message && <p className="mt-3 text-sm text-blue-300">{message}</p>}
 

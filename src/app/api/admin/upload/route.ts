@@ -65,13 +65,13 @@ export async function POST(request: Request) {
     );
   }
 
-  // Vercel has no durable public uploads dir — store small images as data URLs in CMS
+  // Vercel: no durable public disk — store as data URL in CMS (after client compress)
   if (process.env.VERCEL) {
-    if (bytes.length > 400 * 1024) {
+    if (bytes.length > 2 * 1024 * 1024) {
       return NextResponse.json(
         {
           error:
-            "On Vercel, uploads must be under 400KB (best for logos). Or paste an image URL instead.",
+            "Image is still too large after upload (max 2MB on Vercel). Try a smaller image or paste an image URL.",
         },
         { status: 400 }
       );

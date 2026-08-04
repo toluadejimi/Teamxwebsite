@@ -3,7 +3,6 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Check, Shield } from "lucide-react";
 import { readCms, type CmsService } from "@/lib/cms/store";
-import { catalogToMap, resolveMediaUrl } from "@/lib/cms/media";
 import { parseStatValue } from "@/lib/parse-stat";
 import { Reveal } from "@/components/shared/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
@@ -24,9 +23,7 @@ interface ServicePageProps {
 async function loadServices() {
   const cms = await readCms();
   const active = cms.services.filter((s) => s.active !== false);
-  const map = catalogToMap(cms.images);
-  const resolve = (url: string) => resolveMediaUrl(url, map);
-  return { active, resolve };
+  return { active };
 }
 
 async function getService(slug: string): Promise<CmsService | undefined> {
@@ -57,7 +54,7 @@ export async function generateMetadata({
 
 export default async function ServiceDetailPage({ params }: ServicePageProps) {
   const { slug } = await params;
-  const { active, resolve } = await loadServices();
+  const { active } = await loadServices();
   const service = active.find((s) => s.slug === slug);
 
   if (!service) {
@@ -68,7 +65,7 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
     .map((relatedSlug) => active.find((s) => s.slug === relatedSlug))
     .filter((s): s is CmsService => Boolean(s))
     .slice(0, 3);
-  const bannerImage = resolve(service.bannerImage);
+  const bannerImage = service.bannerImage;
   const statItems = service.stats.map((stat) => {
     const parsed = parseStatValue(stat.value);
     return {
@@ -102,15 +99,28 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
       <Section className="pt-8 pb-12">
         <Reveal>
           <div className="relative aspect-[21/9] overflow-hidden rounded-2xl border border-border">
-            <Image
-              src={bannerImage}
-              alt={service.title}
-              fill
-              priority
-              className="object-cover"
-              sizes="100vw"
-              unoptimized={bannerImage.startsWith("data:")}
-            />
+            {bannerImage.startsWith("data:") ||
+            bannerImage.startsWith("/uploads/") ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={bannerImage}
+                alt={service.title}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <Image
+                src={bannerImage}
+                alt={service.title}
+                fill
+                priority
+                className="object-cover"
+                sizes="100vw"
+                unoptimized={
+                  !bannerImage.includes("images.unsplash.com") &&
+                  bannerImage.startsWith("http")
+                }
+              />
+            )}
           </div>
         </Reveal>
       </Section>

@@ -82,18 +82,27 @@ function CardShell({
     >
       {resolvedImage && (
         <div className="relative aspect-[16/10] overflow-hidden">
-          <Image
-            src={resolvedImage}
-            alt={imageAlt || title}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, 33vw"
-            unoptimized={
-              resolvedImage.startsWith("data:") ||
-              (!resolvedImage.includes("images.unsplash.com") &&
-                resolvedImage.startsWith("http"))
-            }
-          />
+          {resolvedImage.startsWith("data:") ||
+          resolvedImage.startsWith("/uploads/") ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={resolvedImage}
+              alt={imageAlt || title}
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <Image
+              src={resolvedImage}
+              alt={imageAlt || title}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, 33vw"
+              unoptimized={
+                !resolvedImage.includes("images.unsplash.com") &&
+                resolvedImage.startsWith("http")
+              }
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent" />
         </div>
       )}
