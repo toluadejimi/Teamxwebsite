@@ -9,13 +9,38 @@ import { FormSuccess } from "./FormSuccess";
 export function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setLoading(false);
-    setSubmitted(true);
+    setError("");
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      firstName: String(form.get("firstName") || ""),
+      lastName: String(form.get("lastName") || ""),
+      email: String(form.get("email") || ""),
+      phone: String(form.get("phone") || ""),
+      subject: String(form.get("subject") || ""),
+      message: String(form.get("message") || ""),
+    };
+
+    try {
+      const res = await fetch("/api/public/enquiries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to send message");
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
@@ -100,6 +125,8 @@ export function ContactForm() {
           placeholder="Tell us how we can help..."
         />
       </FormField>
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
 
       <Button type="submit" size="lg" disabled={loading} className="w-full sm:w-auto">
         {loading ? "Sending..." : "Send message"}

@@ -47,6 +47,8 @@ const fallbackOffices: CmsOffice[] = [
 export function Footer({ className }: FooterProps) {
   const currentYear = new Date().getFullYear();
   const [offices, setOffices] = useState<CmsOffice[]>(fallbackOffices);
+  const [contactEmail, setContactEmail] = useState("hello@teamxtech.com");
+  const [contactPhone, setContactPhone] = useState("+234 1 234 5678");
 
   useEffect(() => {
     fetch("/api/public/contact")
@@ -55,6 +57,8 @@ export function Footer({ className }: FooterProps) {
         if (Array.isArray(data?.offices) && data.offices.length) {
           setOffices(data.offices);
         }
+        if (data?.email) setContactEmail(data.email);
+        if (data?.phone) setContactPhone(data.phone);
       })
       .catch(() => undefined);
   }, []);
@@ -71,6 +75,17 @@ export function Footer({ className }: FooterProps) {
               Enterprise-grade technology solutions for organizations that demand
               precision, security, and scale — headquartered in Nigeria.
             </p>
+            <div className="mt-4 space-y-1 text-sm text-muted">
+              <a href={`mailto:${contactEmail}`} className="block hover:text-accent">
+                {contactEmail}
+              </a>
+              <a
+                href={`tel:${contactPhone.replace(/\s/g, "")}`}
+                className="block hover:text-accent"
+              >
+                {contactPhone}
+              </a>
+            </div>
             <div className="mt-8">
               <NewsletterForm variant="stacked" />
             </div>

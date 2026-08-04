@@ -6,7 +6,6 @@ import {
   aboutContent,
   awards,
   company,
-  companyOffices,
   leadership,
   mission,
   partners,
@@ -16,6 +15,7 @@ import {
   vision,
   whyChooseUs,
 } from "@/lib/data";
+import { readCms } from "@/lib/cms/store";
 import { getIcon } from "@/lib/icons";
 import { parseStatValue } from "@/lib/parse-stat";
 import { Reveal } from "@/components/shared/Reveal";
@@ -61,7 +61,11 @@ const officeMapDots = [
   { x: 318, y: 195, label: "Abuja", size: 4 },
 ];
 
-export default function AboutPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AboutPage() {
+  const cms = await readCms();
+  const companyOffices = cms.contact.offices;
   const statItems = stats.map((stat) => {
     const parsed = parseStatValue(stat.value);
     return {

@@ -7,6 +7,7 @@ import {
   Briefcase,
   FileText,
   ImageIcon,
+  Inbox,
   LayoutDashboard,
   Layers,
   LogOut,
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/leads", label: "Leads", icon: Inbox },
   { href: "/admin/images", label: "Images & Logo", icon: ImageIcon },
   { href: "/admin/contact", label: "Contact Info", icon: Phone },
   { href: "/admin/services", label: "Services", icon: Layers },

@@ -3,6 +3,7 @@ import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
 import { createPageMetadata } from "@/lib/seo";
 import { company } from "@/lib/data";
+import { readCms } from "@/lib/cms/store";
 
 export const metadata = createPageMetadata({
   title: "Privacy Policy",
@@ -13,7 +14,12 @@ export const metadata = createPageMetadata({
 
 const lastUpdated = "July 31, 2025";
 
-export default function PrivacyPage() {
+export const dynamic = "force-dynamic";
+
+export default async function PrivacyPage() {
+  const cms = await readCms();
+  const contactEmail = cms.contact.email;
+  const contactPhone = cms.contact.phone;
   return (
     <>
       <PageHero
@@ -157,8 +163,8 @@ export default function PrivacyPage() {
               Depending on your jurisdiction, you may have the right to access, correct, delete,
               or restrict processing of your personal data, object to processing, request data
               portability, and withdraw consent. To exercise these rights, contact us at{" "}
-              <a href={`mailto:${company.email}`} className="text-accent hover:underline">
-                {company.email}
+              <a href={`mailto:${contactEmail}`} className="text-accent hover:underline">
+                {contactEmail}
               </a>
               .
             </p>
@@ -212,13 +218,13 @@ export default function PrivacyPage() {
               12 Admiralty Way, Lekki Phase 1, Lagos, Nigeria
               <br />
               Email:{" "}
-              <a href={`mailto:${company.email}`} className="text-accent hover:underline">
-                {company.email}
+              <a href={`mailto:${contactEmail}`} className="text-accent hover:underline">
+                {contactEmail}
               </a>
               <br />
               Phone:{" "}
-              <a href={`tel:${company.phone.replace(/\s/g, "")}`} className="text-accent hover:underline">
-                {company.phone}
+              <a href={`tel:${contactPhone.replace(/\s/g, "")}`} className="text-accent hover:underline">
+                {contactPhone}
               </a>
             </address>
           </section>

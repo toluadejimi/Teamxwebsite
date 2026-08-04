@@ -82,6 +82,60 @@ export type CmsService = Service & {
   active: boolean;
 };
 
+export type LeadStatus = "new" | "read" | "archived";
+
+export type CmsEnquiry = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  subject: string;
+  message: string;
+  status: LeadStatus;
+  createdAt: string;
+};
+
+export type CmsDemoRequest = {
+  id: string;
+  fullName: string;
+  email: string;
+  company: string;
+  jobTitle?: string;
+  topic: string;
+  preferredDate: string;
+  preferredTime: string;
+  notes?: string;
+  status: LeadStatus;
+  createdAt: string;
+};
+
+export type CmsQuoteRequest = {
+  id: string;
+  fullName: string;
+  company: string;
+  email: string;
+  phone?: string;
+  projectType: string;
+  budget: string;
+  timeline: string;
+  teamSize?: string;
+  description: string;
+  status: LeadStatus;
+  createdAt: string;
+};
+
+export type CmsJobApplication = {
+  id: string;
+  name: string;
+  email: string;
+  position: string;
+  portfolio?: string;
+  coverLetter: string;
+  status: LeadStatus;
+  createdAt: string;
+};
+
 export type CmsData = {
   contact: CmsContact;
   images: CmsImageEntry[];
@@ -89,6 +143,10 @@ export type CmsData = {
   chats: ChatConversation[];
   caseStudies: CmsCaseStudy[];
   services: CmsService[];
+  enquiries: CmsEnquiry[];
+  demoRequests: CmsDemoRequest[];
+  quoteRequests: CmsQuoteRequest[];
+  jobApplications: CmsJobApplication[];
 };
 
 const DATA_DIR = process.env.VERCEL
@@ -235,6 +293,10 @@ function defaultData(): CmsData {
     chats: [],
     caseStudies: defaultCaseStudies,
     services: defaultServices,
+    enquiries: [],
+    demoRequests: [],
+    quoteRequests: [],
+    jobApplications: [],
   };
 }
 
@@ -258,6 +320,10 @@ async function ensureStore(): Promise<CmsData> {
           ? parsed.caseStudies
           : defaultCaseStudies,
         services: parsed.services?.length ? parsed.services : defaultServices,
+        enquiries: parsed.enquiries ?? [],
+        demoRequests: parsed.demoRequests ?? [],
+        quoteRequests: parsed.quoteRequests ?? [],
+        jobApplications: parsed.jobApplications ?? [],
       };
       return memoryStore;
     } catch {

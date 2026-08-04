@@ -1,22 +1,64 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { FormField, inputClassName, selectClassName, textareaClassName } from "./FormField";
 import { FormSuccess } from "./FormSuccess";
-import { jobListings } from "@/lib/data";
+
+type JobOption = { slug: string; title: string };
 
 export function CareersApplyForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [jobs, setJobs] = useState<JobOption[]>([]);
+
+  useEffect(() => {
+    fetch("/api/public/jobs")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setJobs(
+            data.map((j: { slug: string; title: string }) => ({
+              slug: j.slug,
+              title: j.title,
+            }))
+          );
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setLoading(false);
-    setSubmitted(true);
+    setError("");
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      name: String(form.get("name") || ""),
+      email: String(form.get("email") || ""),
+      position: String(form.get("position") || ""),
+      portfolio: String(form.get("portfolio") || ""),
+      coverLetter: String(form.get("coverLetter") || ""),
+    };
+
+    try {
+      const res = await fetch("/api/public/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to submit application");
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit application");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
@@ -60,7 +102,7 @@ export function CareersApplyForm() {
           <option value="" disabled>
             Select a role
           </option>
-          {jobListings.map((job) => (
+          {jobs.map((job) => (
             <option key={job.slug} value={job.slug}>
               {job.title}
             </option>
@@ -91,6 +133,8 @@ export function CareersApplyForm() {
           placeholder="Tell us why you'd like to join Team X and what you'd bring to the team..."
         />
       </FormField>
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
 
       <Button type="submit" size="lg" disabled={loading} className="w-full sm:w-auto">
         {loading ? "Submitting..." : "Submit application"}

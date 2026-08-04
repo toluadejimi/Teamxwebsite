@@ -9,13 +9,41 @@ import { FormSuccess } from "./FormSuccess";
 export function QuoteForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    setLoading(false);
-    setSubmitted(true);
+    setError("");
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      fullName: String(form.get("fullName") || ""),
+      company: String(form.get("company") || ""),
+      email: String(form.get("email") || ""),
+      phone: String(form.get("phone") || ""),
+      projectType: String(form.get("projectType") || ""),
+      budget: String(form.get("budget") || ""),
+      timeline: String(form.get("timeline") || ""),
+      teamSize: String(form.get("teamSize") || ""),
+      description: String(form.get("description") || ""),
+    };
+
+    try {
+      const res = await fetch("/api/public/quotes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to submit quote");
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit quote");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
@@ -147,6 +175,8 @@ export function QuoteForm() {
           placeholder="Describe your project requirements, challenges, and expected outcomes..."
         />
       </FormField>
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
 
       <Button type="submit" size="lg" disabled={loading} className="w-full sm:w-auto">
         {loading ? "Submitting..." : "Request quote"}

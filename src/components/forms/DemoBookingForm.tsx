@@ -9,6 +9,7 @@ import { FormSuccess } from "./FormSuccess";
 export function DemoBookingForm() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
 
@@ -18,16 +19,42 @@ export function DemoBookingForm() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    setLoading(false);
-    setSubmitted(true);
+    setError("");
+    const form = new FormData(e.currentTarget);
+    const payload = {
+      fullName: String(form.get("fullName") || ""),
+      email: String(form.get("email") || ""),
+      company: String(form.get("company") || ""),
+      jobTitle: String(form.get("jobTitle") || ""),
+      topic: String(form.get("topic") || ""),
+      preferredDate: String(form.get("preferredDate") || ""),
+      preferredTime: String(form.get("preferredTime") || ""),
+      notes: String(form.get("notes") || ""),
+    };
+
+    try {
+      const res = await fetch("/api/public/demos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to book demo");
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to book demo");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
     return (
       <FormSuccess
         title="Demo request confirmed"
-        message={`We've received your booking${selectedDate ? ` for ${selectedDate}` : ""}${selectedTime ? ` at ${selectedTime}` : ""}. A calendar invite will arrive shortly.`}
+        message={`We've received your booking${selectedDate ? ` for ${selectedDate}` : ""}${selectedTime ? ` at ${selectedTime}` : ""}. Our team will confirm and send a calendar invite.`}
       />
     );
   }
@@ -153,6 +180,8 @@ export function DemoBookingForm() {
           placeholder="Share context about your organization or specific questions..."
         />
       </FormField>
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
 
       <Button type="submit" size="lg" disabled={loading} className="w-full sm:w-auto">
         {loading ? "Booking..." : "Book demo"}

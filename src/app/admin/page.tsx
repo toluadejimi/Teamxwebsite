@@ -7,6 +7,7 @@ import {
   Briefcase,
   FileText,
   ImageIcon,
+  Inbox,
   Layers,
   MessageSquare,
   Phone,
@@ -29,6 +30,7 @@ export default function AdminDashboardPage() {
     images: 0,
     caseStudies: 0,
     services: 0,
+    leads: 0,
   });
 
   useEffect(() => {
@@ -45,15 +47,24 @@ export default function AdminDashboardPage() {
           return;
         }
 
-        const [jobs, chats, images, caseStudies, services] = await Promise.all([
-          fetchJson("/api/admin/jobs").catch(() => []),
-          fetchJson("/api/admin/chats").catch(() => []),
-          fetchJson("/api/admin/images").catch(() => []),
-          fetchJson("/api/admin/case-studies").catch(() => []),
-          fetchJson("/api/admin/services").catch(() => []),
-        ]);
+        const [jobs, chats, images, caseStudies, services, leads] =
+          await Promise.all([
+            fetchJson("/api/admin/jobs").catch(() => []),
+            fetchJson("/api/admin/chats").catch(() => []),
+            fetchJson("/api/admin/images").catch(() => []),
+            fetchJson("/api/admin/case-studies").catch(() => []),
+            fetchJson("/api/admin/services").catch(() => []),
+            fetchJson("/api/admin/leads").catch(() => ({})),
+          ]);
 
         if (cancelled) return;
+
+        const newLeads = (["enquiries", "demoRequests", "quoteRequests", "jobApplications"] as const)
+          .reduce((n, key) => {
+            const list = leads?.[key];
+            if (!Array.isArray(list)) return n;
+            return n + list.filter((e: { status?: string }) => e.status === "new").length;
+          }, 0);
 
         setStats({
           jobs: Array.isArray(jobs) ? jobs.length : 0,
@@ -68,6 +79,7 @@ export default function AdminDashboardPage() {
           images: Array.isArray(images) ? images.length : 0,
           caseStudies: Array.isArray(caseStudies) ? caseStudies.length : 0,
           services: Array.isArray(services) ? services.length : 0,
+          leads: newLeads,
         });
       } catch (e) {
         if (!cancelled) {
@@ -95,6 +107,13 @@ export default function AdminDashboardPage() {
   }
 
   const cards = [
+    {
+      href: "/admin/leads",
+      label: "Leads",
+      value: stats.leads,
+      icon: Inbox,
+      hint: "Contact, demos, quotes, applications",
+    },
     {
       href: "/admin/images",
       label: "Images & Logo",
