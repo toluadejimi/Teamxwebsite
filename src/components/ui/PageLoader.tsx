@@ -203,13 +203,14 @@ export function PageLoaderProvider({ children }: { children: ReactNode }) {
     }, 220);
   }, [progress]);
 
-  // Initial splash
+  // Initial splash — always dismiss; never hang on tunnel/slow assets
   useEffect(() => {
     if (isAdmin) return;
 
     const start = performance.now();
     let raf = 0;
     let finished = false;
+    let settleTimer = 0;
 
     const tick = (now: number) => {
       if (finished) return;
@@ -222,21 +223,38 @@ export function PageLoaderProvider({ children }: { children: ReactNode }) {
     raf = requestAnimationFrame(tick);
 
     const ready = () => {
+      if (finished) return;
       const wait = Math.max(0, MIN_SPLASH_MS - (performance.now() - start));
-      window.setTimeout(() => {
+      settleTimer = window.setTimeout(() => {
+        if (finished) return;
         finished = true;
         cancelAnimationFrame(raf);
         finishSplash();
       }, wait);
     };
 
-    if (document.readyState === "complete") ready();
-    else window.addEventListener("load", ready, { once: true });
+    // Don't wait forever for window "load" (fonts/3D/images can hang on tunnels)
+    if (document.readyState === "complete" || document.readyState === "interactive") {
+      ready();
+    } else {
+      window.addEventListener("DOMContentLoaded", ready, { once: true });
+      window.addEventListener("load", ready, { once: true });
+    }
 
-    const failsafe = window.setTimeout(ready, 3000);
+    const failsafe = window.setTimeout(ready, 1800);
+    const hardKill = window.setTimeout(() => {
+      if (finished) return;
+      finished = true;
+      cancelAnimationFrame(raf);
+      finishSplash();
+    }, 2800);
+
     return () => {
       cancelAnimationFrame(raf);
       window.clearTimeout(failsafe);
+      window.clearTimeout(hardKill);
+      window.clearTimeout(settleTimer);
+      window.removeEventListener("DOMContentLoaded", ready);
       window.removeEventListener("load", ready);
     };
   }, [finishSplash, isAdmin, progress]);
