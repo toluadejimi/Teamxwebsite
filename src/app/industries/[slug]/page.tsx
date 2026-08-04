@@ -7,8 +7,8 @@ import {
   getServicesByCategory,
   getPortfolioByIndustry,
   industries,
-  caseStudies,
 } from "@/lib/data";
+import { readCms } from "@/lib/cms/store";
 import { getIcon } from "@/lib/icons";
 import { Reveal } from "@/components/shared/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
@@ -163,8 +163,9 @@ export default async function IndustryDetailPage({ params }: IndustryPageProps) 
   const categorySlug = industryServiceMap[slug] ?? "enterprise-software";
   const relatedServices = getServicesByCategory(categorySlug).slice(0, 6);
   const portfolioItems = getPortfolioByIndustry(industry.name).slice(0, 3);
-  const relatedCaseStudies = caseStudies
-    .filter((study) => study.industry === industry.name)
+  const cms = await readCms();
+  const relatedCaseStudies = cms.caseStudies
+    .filter((study) => study.active !== false && study.industry === industry.name)
     .slice(0, 2);
   const insights = industryInsights[slug];
 

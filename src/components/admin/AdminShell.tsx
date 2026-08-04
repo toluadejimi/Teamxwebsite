@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Briefcase,
+  FileText,
   ImageIcon,
   LayoutDashboard,
   LogOut,
@@ -15,8 +16,9 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/images", label: "Images", icon: ImageIcon },
+  { href: "/admin/images", label: "Images & Logo", icon: ImageIcon },
   { href: "/admin/contact", label: "Contact Info", icon: Phone },
+  { href: "/admin/case-studies", label: "Case Studies", icon: FileText },
   { href: "/admin/jobs", label: "Job Postings", icon: Briefcase },
   { href: "/admin/chat", label: "Live Chat", icon: MessageSquare },
 ];

@@ -17,6 +17,7 @@ import { CommandPalette } from "@/components/ui/CommandPalette";
 import { Container } from "@/components/ui/Container";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { MagneticButton } from "@/components/shared/MagneticButton";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -71,13 +72,8 @@ export function Navbar() {
             aria-label="Main navigation"
           >
             {/* Logo */}
-            <Link href="/" className="group flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent font-display text-sm font-bold text-accent-foreground">
-                X
-              </div>
-              <span className="font-display text-base font-semibold tracking-tight text-foreground">
-                Team<span className="text-accent">X</span>
-              </span>
+            <Link href="/" className="group">
+              <BrandLogo />
             </Link>
 
             {/* Desktop nav */}

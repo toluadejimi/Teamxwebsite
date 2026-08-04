@@ -5,10 +5,13 @@ import { Section } from "@/components/ui/Section";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/shared/Reveal";
-import { getFeaturedCaseStudies } from "@/lib/data/case-studies";
+import { readCms } from "@/lib/cms/store";
 
-export function CaseStudiesPreview() {
-  const caseStudies = getFeaturedCaseStudies(3);
+export async function CaseStudiesPreview() {
+  const cms = await readCms();
+  const caseStudies = cms.caseStudies
+    .filter((s) => s.active !== false)
+    .slice(0, 3);
 
   return (
     <Section
@@ -32,6 +35,7 @@ export function CaseStudiesPreview() {
                   fill
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                   sizes="(max-width: 1024px) 100vw, 33vw"
+                  unoptimized={study.image.startsWith("data:")}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/20 to-transparent" />
               </div>

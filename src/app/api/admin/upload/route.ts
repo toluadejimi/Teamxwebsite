@@ -6,9 +6,7 @@ import { uid } from "@/lib/cms/store";
 
 function detectImageExt(buf: Buffer): string | null {
   if (buf.length < 12) return null;
-  // JPEG
   if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return ".jpg";
-  // PNG
   if (
     buf[0] === 0x89 &&
     buf[1] === 0x50 &&
@@ -16,9 +14,7 @@ function detectImageExt(buf: Buffer): string | null {
     buf[3] === 0x47
   )
     return ".png";
-  // GIF
   if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return ".gif";
-  // WEBP (RIFF....WEBP)
   if (
     buf[0] === 0x52 &&
     buf[1] === 0x49 &&
@@ -33,20 +29,22 @@ function detectImageExt(buf: Buffer): string | null {
   return null;
 }
 
+function mimeForExt(ext: string): string {
+  switch (ext) {
+    case ".png":
+      return "image/png";
+    case ".gif":
+      return "image/gif";
+    case ".webp":
+      return "image/webp";
+    default:
+      return "image/jpeg";
+  }
+}
+
 export async function POST(request: Request) {
   const ok = await requireAdmin();
   if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  // Vercel filesystem is read-only except /tmp, which isn't publicly served
-  if (process.env.VERCEL) {
-    return NextResponse.json(
-      {
-        error:
-          "File upload isn't available on Vercel hosting. Paste an image URL instead.",
-      },
-      { status: 400 }
-    );
-  }
 
   const form = await request.formData();
   const file = form.get("file");
@@ -59,13 +57,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Max file size is 5MB" }, { status: 400 });
   }
 
-  // Magic-byte check — never trust client filename/MIME (blocks SVG/HTML/PHP uploads)
   const ext = detectImageExt(bytes);
   if (!ext) {
     return NextResponse.json(
       { error: "Only real JPEG, PNG, GIF, or WebP images are allowed" },
       { status: 400 }
     );
+  }
+
+  // Vercel has no durable public uploads dir — store small images as data URLs in CMS
+  if (process.env.VERCEL) {
+    if (bytes.length > 400 * 1024) {
+      return NextResponse.json(
+        {
+          error:
+            "On Vercel, uploads must be under 400KB (best for logos). Or paste an image URL instead.",
+        },
+        { status: 400 }
+      );
+    }
+    const dataUrl = `data:${mimeForExt(ext)};base64,${bytes.toString("base64")}`;
+    return NextResponse.json({ url: dataUrl });
   }
 
   const dir = path.join(process.cwd(), "public", "uploads");

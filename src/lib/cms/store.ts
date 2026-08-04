@@ -1,6 +1,10 @@
 import { randomBytes, timingSafeEqual, createHash } from "crypto";
 import { promises as fs } from "fs";
 import path from "path";
+import {
+  caseStudies as seedCaseStudies,
+  type CaseStudy,
+} from "@/lib/data/case-studies";
 
 export type CmsJob = {
   id: string;
@@ -63,11 +67,17 @@ export type ChatConversation = {
   messages: ChatMessage[];
 };
 
+export type CmsCaseStudy = CaseStudy & {
+  id: string;
+  active: boolean;
+};
+
 export type CmsData = {
   contact: CmsContact;
   images: CmsImageEntry[];
   jobs: CmsJob[];
   chats: ChatConversation[];
+  caseStudies: CmsCaseStudy[];
 };
 
 const DATA_DIR = process.env.VERCEL
@@ -102,6 +112,7 @@ const defaultContact: CmsContact = {
 };
 
 const defaultImageCatalog: Array<{ key: string; category: string; label: string; url: string }> = [
+  { key: "brand.logo", category: "Brand", label: "Company logo", url: "" },
   { key: "hero.main", category: "Hero", label: "Hero primary", url: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1600&q=80" },
   { key: "hero.secondary", category: "Hero", label: "Hero secondary", url: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200&q=80" },
   { key: "company.office", category: "Company", label: "Office", url: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=1200&q=80" },
@@ -197,12 +208,31 @@ const defaultJobs: CmsJob[] = [
   },
 ];
 
+const defaultCaseStudies: CmsCaseStudy[] = seedCaseStudies.map((study) => ({
+  ...study,
+  id: `cs_${study.slug}`,
+  active: true,
+}));
+
+function mergeImageCatalog(existing?: CmsImageEntry[]): CmsImageEntry[] {
+  const byKey = new Map((existing || []).map((img) => [img.key, img]));
+  const merged = defaultImageCatalog.map((def) => {
+    const cur = byKey.get(def.key);
+    return cur ? { ...def, ...cur, key: def.key, category: def.category, label: def.label } : def;
+  });
+  for (const img of existing || []) {
+    if (!merged.some((m) => m.key === img.key)) merged.push(img);
+  }
+  return merged;
+}
+
 function defaultData(): CmsData {
   return {
     contact: defaultContact,
     images: defaultImageCatalog,
     jobs: defaultJobs,
     chats: [],
+    caseStudies: defaultCaseStudies,
   };
 }
 
@@ -216,12 +246,15 @@ async function ensureStore(): Promise<CmsData> {
     await fs.mkdir(DATA_DIR, { recursive: true });
     try {
       const raw = await fs.readFile(DATA_FILE, "utf8");
-      const parsed = JSON.parse(raw) as CmsData;
+      const parsed = JSON.parse(raw) as Partial<CmsData>;
       memoryStore = {
         contact: parsed.contact ?? defaultContact,
-        images: parsed.images?.length ? parsed.images : defaultImageCatalog,
+        images: mergeImageCatalog(parsed.images),
         jobs: parsed.jobs?.length ? parsed.jobs : defaultJobs,
         chats: parsed.chats ?? [],
+        caseStudies: parsed.caseStudies?.length
+          ? parsed.caseStudies
+          : defaultCaseStudies,
       };
       return memoryStore;
     } catch {

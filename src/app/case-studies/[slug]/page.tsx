@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Quote } from "lucide-react";
-import { caseStudies, getCaseStudyBySlug } from "@/lib/data";
+import { readCms } from "@/lib/cms/store";
 import { Reveal } from "@/components/shared/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
 import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
 import { Badge } from "@/components/ui/Badge";
+
+export const dynamic = "force-dynamic";
 
 interface CaseStudyPageProps {
   params: Promise<{ slug: string }>;
@@ -24,15 +26,16 @@ const phases = [
   { key: "results", label: "Results", title: "Outcomes & Impact" },
 ] as const;
 
-export async function generateStaticParams() {
-  return caseStudies.map((study) => ({ slug: study.slug }));
+async function getStudy(slug: string) {
+  const cms = await readCms();
+  return cms.caseStudies.find((s) => s.slug === slug && s.active !== false);
 }
 
 export async function generateMetadata({
   params,
 }: CaseStudyPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const study = getCaseStudyBySlug(slug);
+  const study = await getStudy(slug);
 
   if (!study) {
     return { title: "Case Study Not Found" };
@@ -51,7 +54,7 @@ export async function generateMetadata({
 
 export default async function CaseStudyDetailPage({ params }: CaseStudyPageProps) {
   const { slug } = await params;
-  const study = getCaseStudyBySlug(slug);
+  const study = await getStudy(slug);
 
   if (!study) {
     notFound();
@@ -155,6 +158,7 @@ export default async function CaseStudyDetailPage({ params }: CaseStudyPageProps
               fill
               className="object-cover"
               sizes="100vw"
+              unoptimized={study.image.startsWith("data:")}
             />
           </div>
         </Reveal>

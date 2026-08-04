@@ -12,6 +12,7 @@ import { Container } from "@/components/ui/Container";
 import { NewsletterForm } from "@/components/ui/NewsletterForm";
 import { WorldMap } from "@/components/shared/WorldMap";
 import type { CmsOffice } from "@/lib/cms/store";
+import { BrandLogo } from "@/components/shared/BrandLogo";
 
 interface FooterProps {
   className?: string;
@@ -63,13 +64,8 @@ export function Footer({ className }: FooterProps) {
       <Container>
         <div className="grid gap-12 py-16 md:grid-cols-2 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-4">
-            <Link href="/" className="inline-flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent font-display text-sm font-bold text-accent-foreground">
-                X
-              </div>
-              <span className="font-display text-base font-semibold tracking-tight text-foreground">
-                Team<span className="text-accent">X</span> Technologies
-              </span>
+            <Link href="/" className="inline-flex">
+              <BrandLogo wordmark="full" />
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted">
               Enterprise-grade technology solutions for organizations that demand

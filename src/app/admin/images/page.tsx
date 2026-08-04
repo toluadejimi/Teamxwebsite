@@ -65,35 +65,54 @@ export default function AdminImagesPage() {
 
   return (
     <div className="pb-8">
-      <h1 className="text-2xl font-semibold text-white">Site Images</h1>
+      <h1 className="text-2xl font-semibold text-white">Images & Logo</h1>
       <p className="mt-1 text-sm text-slate-400">
-        Update image URLs or upload files (max 5MB). Scroll normally in this panel —
-        previews stay locked in place.
+        Update the company logo and site images. On Vercel, logo uploads under 400KB
+        are stored in CMS; larger files need an image URL.
       </p>
       {message && <p className="mt-3 text-sm text-blue-300">{message}</p>}
 
       <div className="mt-8 space-y-10">
-        {categories.map((category) => (
+        {(["Brand", ...categories.filter((c) => c !== "Brand")] as string[]).map(
+          (category) => {
+            const items = images.filter((i) => i.category === category);
+            if (!items.length) return null;
+            return (
           <section key={category}>
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
               {category}
+              {category === "Brand" ? " — appears in navbar & footer" : ""}
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
-              {images
-                .filter((i) => i.category === category)
-                .map((img) => (
+              {items.map((img) => (
                   <article
                     key={img.key}
                     className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
                   >
-                    <div className="relative aspect-video overflow-hidden bg-black/40">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={img.url}
-                        alt={img.label}
-                        className="pointer-events-none h-full w-full select-none object-cover"
-                        draggable={false}
-                      />
+                    <div
+                      className={
+                        img.key === "brand.logo"
+                          ? "relative flex aspect-video items-center justify-center overflow-hidden bg-black/40 p-8"
+                          : "relative aspect-video overflow-hidden bg-black/40"
+                      }
+                    >
+                      {img.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={img.url}
+                          alt={img.label}
+                          className={
+                            img.key === "brand.logo"
+                              ? "pointer-events-none max-h-24 max-w-full select-none object-contain"
+                              : "pointer-events-none h-full w-full select-none object-cover"
+                          }
+                          draggable={false}
+                        />
+                      ) : (
+                        <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white">
+                          X
+                        </span>
+                      )}
                     </div>
                     <div className="space-y-3 p-4">
                       <div>
@@ -102,14 +121,14 @@ export default function AdminImagesPage() {
                       </div>
                       <input
                         defaultValue={img.url}
-                        key={`${img.key}-${img.url}`}
+                        key={`${img.key}-${img.url.slice(0, 40)}`}
                         onBlur={(e) => {
                           if (e.target.value !== img.url) {
                             saveUrl(img.key, e.target.value);
                           }
                         }}
                         className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-slate-200 outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="https://… or /uploads/…"
+                        placeholder="https://… or upload a file"
                       />
                       <div className="flex items-center gap-3">
                         <label className="cursor-pointer rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500">
@@ -134,7 +153,9 @@ export default function AdminImagesPage() {
                 ))}
             </div>
           </section>
-        ))}
+            );
+          }
+        )}
       </div>
     </div>
   );

@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Briefcase, ImageIcon, MessageSquare, Phone } from "lucide-react";
+import {
+  Briefcase,
+  FileText,
+  ImageIcon,
+  MessageSquare,
+  Phone,
+} from "lucide-react";
 
 async function fetchJson(url: string) {
   const res = await fetch(url, { cache: "no-store", credentials: "include" });
@@ -15,7 +21,13 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
-  const [stats, setStats] = useState({ jobs: 0, chats: 0, unread: 0, images: 0 });
+  const [stats, setStats] = useState({
+    jobs: 0,
+    chats: 0,
+    unread: 0,
+    images: 0,
+    caseStudies: 0,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -31,10 +43,11 @@ export default function AdminDashboardPage() {
           return;
         }
 
-        const [jobs, chats, images] = await Promise.all([
+        const [jobs, chats, images, caseStudies] = await Promise.all([
           fetchJson("/api/admin/jobs").catch(() => []),
           fetchJson("/api/admin/chats").catch(() => []),
           fetchJson("/api/admin/images").catch(() => []),
+          fetchJson("/api/admin/case-studies").catch(() => []),
         ]);
 
         if (cancelled) return;
@@ -50,6 +63,7 @@ export default function AdminDashboardPage() {
               )
             : 0,
           images: Array.isArray(images) ? images.length : 0,
+          caseStudies: Array.isArray(caseStudies) ? caseStudies.length : 0,
         });
       } catch (e) {
         if (!cancelled) {
@@ -79,10 +93,10 @@ export default function AdminDashboardPage() {
   const cards = [
     {
       href: "/admin/images",
-      label: "Site Images",
+      label: "Images & Logo",
       value: stats.images,
       icon: ImageIcon,
-      hint: "Update banners & media",
+      hint: "Logo, banners & media",
     },
     {
       href: "/admin/contact",
@@ -90,6 +104,13 @@ export default function AdminDashboardPage() {
       value: "NG",
       icon: Phone,
       hint: "Email, phone, Nigeria offices",
+    },
+    {
+      href: "/admin/case-studies",
+      label: "Case Studies",
+      value: stats.caseStudies,
+      icon: FileText,
+      hint: "Create & edit success stories",
     },
     {
       href: "/admin/jobs",
@@ -118,7 +139,7 @@ export default function AdminDashboardPage() {
           Some data could not load ({error}). You can still open the sections below.
         </p>
       )}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((card) => {
           const Icon = card.icon;
           return (

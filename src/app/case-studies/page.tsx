@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { caseStudies } from "@/lib/data";
+import { readCms } from "@/lib/cms/store";
 import { Reveal } from "@/components/shared/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
 import { ServiceCard } from "@/components/ui/Card";
@@ -9,13 +9,18 @@ import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
 import { Badge } from "@/components/ui/Badge";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Case Studies",
   description:
     "In-depth case studies from Team X Technologies — digital transformation stories with measurable outcomes across banking, government, healthcare, and more.",
 };
 
-export default function CaseStudiesPage() {
+export default async function CaseStudiesPage() {
+  const cms = await readCms();
+  const caseStudies = cms.caseStudies.filter((s) => s.active !== false);
+
   return (
     <>
       <PageHero
@@ -78,8 +83,6 @@ export default function CaseStudiesPage() {
         description="Join the enterprises that trust Team X to deliver transformation with measurable outcomes."
         primaryLabel="Start a Project"
         primaryHref="/contact"
-        secondaryLabel="View Portfolio"
-        secondaryHref="/portfolio"
       />
     </>
   );
