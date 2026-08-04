@@ -167,6 +167,11 @@ export default async function IndustryDetailPage({ params }: IndustryPageProps) 
   const relatedCaseStudies = cms.caseStudies
     .filter((study) => study.active !== false && study.industry === industry.name)
     .slice(0, 2);
+  const relatedFromCms = cms.services
+    .filter((s) => s.active !== false && s.category === categorySlug)
+    .slice(0, 6);
+  const servicesForIndustry =
+    relatedFromCms.length > 0 ? relatedFromCms : relatedServices;
   const insights = industryInsights[slug];
 
   return (
@@ -230,7 +235,7 @@ export default async function IndustryDetailPage({ params }: IndustryPageProps) 
         className="bg-surface/50"
       >
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {relatedServices.map((service, index) => (
+          {servicesForIndustry.map((service, index) => (
             <Reveal key={service.slug} delay={index * 0.05}>
               <ServiceCard
                 title={service.title}

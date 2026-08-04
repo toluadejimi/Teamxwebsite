@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { Check } from "lucide-react";
-import { getServiceBySlug } from "@/lib/data";
+import { readCms } from "@/lib/cms/store";
 import { Reveal } from "@/components/shared/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
 import { ServiceCard } from "@/components/ui/Card";
 import { PageHero } from "@/components/ui/PageHero";
 import { Section } from "@/components/ui/Section";
 import { Badge } from "@/components/ui/Badge";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -41,10 +43,14 @@ const productSlugs = [
   },
 ] as const;
 
-export default function ProductsPage() {
+export default async function ProductsPage() {
+  const cms = await readCms();
+  const bySlug = new Map(
+    cms.services.filter((s) => s.active !== false).map((s) => [s.slug, s])
+  );
   const products = productSlugs
     .map(({ slug, tagline }) => {
-      const service = getServiceBySlug(slug);
+      const service = bySlug.get(slug);
       return service ? { ...service, tagline } : null;
     })
     .filter((p): p is NonNullable<typeof p> => p !== null);

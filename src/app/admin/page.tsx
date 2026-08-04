@@ -7,6 +7,7 @@ import {
   Briefcase,
   FileText,
   ImageIcon,
+  Layers,
   MessageSquare,
   Phone,
 } from "lucide-react";
@@ -27,6 +28,7 @@ export default function AdminDashboardPage() {
     unread: 0,
     images: 0,
     caseStudies: 0,
+    services: 0,
   });
 
   useEffect(() => {
@@ -43,11 +45,12 @@ export default function AdminDashboardPage() {
           return;
         }
 
-        const [jobs, chats, images, caseStudies] = await Promise.all([
+        const [jobs, chats, images, caseStudies, services] = await Promise.all([
           fetchJson("/api/admin/jobs").catch(() => []),
           fetchJson("/api/admin/chats").catch(() => []),
           fetchJson("/api/admin/images").catch(() => []),
           fetchJson("/api/admin/case-studies").catch(() => []),
+          fetchJson("/api/admin/services").catch(() => []),
         ]);
 
         if (cancelled) return;
@@ -64,6 +67,7 @@ export default function AdminDashboardPage() {
             : 0,
           images: Array.isArray(images) ? images.length : 0,
           caseStudies: Array.isArray(caseStudies) ? caseStudies.length : 0,
+          services: Array.isArray(services) ? services.length : 0,
         });
       } catch (e) {
         if (!cancelled) {
@@ -104,6 +108,13 @@ export default function AdminDashboardPage() {
       value: "NG",
       icon: Phone,
       hint: "Email, phone, Nigeria offices",
+    },
+    {
+      href: "/admin/services",
+      label: "Services",
+      value: stats.services,
+      icon: Layers,
+      hint: "Edit offerings & banners",
     },
     {
       href: "/admin/case-studies",

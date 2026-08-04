@@ -2,11 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Check, Shield } from "lucide-react";
-import {
-  allServices,
-  getRelatedServices,
-  getServiceBySlug,
-} from "@/lib/data";
+import { readCms, type CmsService } from "@/lib/cms/store";
+import { catalogToMap, resolveMediaUrl } from "@/lib/cms/media";
 import { parseStatValue } from "@/lib/parse-stat";
 import { Reveal } from "@/components/shared/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
@@ -18,19 +15,30 @@ import { Section } from "@/components/ui/Section";
 import { StatGrid } from "@/components/ui/StatCounter";
 import { Badge } from "@/components/ui/Badge";
 
+export const dynamic = "force-dynamic";
+
 interface ServicePageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateStaticParams() {
-  return allServices.map((service) => ({ slug: service.slug }));
+async function loadServices() {
+  const cms = await readCms();
+  const active = cms.services.filter((s) => s.active !== false);
+  const map = catalogToMap(cms.images);
+  const resolve = (url: string) => resolveMediaUrl(url, map);
+  return { active, resolve };
+}
+
+async function getService(slug: string): Promise<CmsService | undefined> {
+  const { active } = await loadServices();
+  return active.find((s) => s.slug === slug);
 }
 
 export async function generateMetadata({
   params,
 }: ServicePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const service = getServiceBySlug(slug);
+  const service = await getService(slug);
 
   if (!service) {
     return { title: "Service Not Found" };
@@ -49,13 +57,18 @@ export async function generateMetadata({
 
 export default async function ServiceDetailPage({ params }: ServicePageProps) {
   const { slug } = await params;
-  const service = getServiceBySlug(slug);
+  const { active, resolve } = await loadServices();
+  const service = active.find((s) => s.slug === slug);
 
   if (!service) {
     notFound();
   }
 
-  const relatedServices = getRelatedServices(slug);
+  const relatedServices = service.relatedServices
+    .map((relatedSlug) => active.find((s) => s.slug === relatedSlug))
+    .filter((s): s is CmsService => Boolean(s))
+    .slice(0, 3);
+  const bannerImage = resolve(service.bannerImage);
   const statItems = service.stats.map((stat) => {
     const parsed = parseStatValue(stat.value);
     return {
@@ -77,7 +90,7 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
       <PageHero
         title={service.title}
         description={service.shortDescription}
-        backgroundImage={service.bannerImage}
+        backgroundImage={bannerImage}
         eyebrow={service.category.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
         breadcrumbs={[
           { label: "Home", href: "/" },
@@ -90,12 +103,13 @@ export default async function ServiceDetailPage({ params }: ServicePageProps) {
         <Reveal>
           <div className="relative aspect-[21/9] overflow-hidden rounded-2xl border border-border">
             <Image
-              src={service.bannerImage}
+              src={bannerImage}
               alt={service.title}
               fill
               priority
               className="object-cover"
               sizes="100vw"
+              unoptimized={bannerImage.startsWith("data:")}
             />
           </div>
         </Reveal>

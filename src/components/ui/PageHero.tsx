@@ -1,8 +1,11 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Container } from "./Container";
+import { useResolvedMedia } from "@/components/shared/CmsMediaProvider";
 
 export interface BreadcrumbItem {
   label: string;
@@ -28,6 +31,8 @@ export function PageHero({
   className,
   children,
 }: PageHeroProps) {
+  const resolvedImage = useResolvedMedia(backgroundImage);
+
   return (
     <section
       className={cn(
@@ -35,15 +40,20 @@ export function PageHero({
         className
       )}
     >
-      {backgroundImage && (
+      {resolvedImage && (
         <>
           <Image
-            src={backgroundImage}
+            src={resolvedImage}
             alt=""
             fill
             priority
             className="object-cover opacity-20 dark:opacity-10"
             sizes="100vw"
+            unoptimized={
+              resolvedImage.startsWith("data:") ||
+              (!resolvedImage.includes("images.unsplash.com") &&
+                resolvedImage.startsWith("http"))
+            }
           />
           <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/90 to-background" />
         </>

@@ -1,9 +1,12 @@
+"use client";
+
 import Image from "next/image";
 import { ArrowRight, Bot, Brain, Sparkles, Workflow } from "lucide-react";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Reveal } from "@/components/shared/Reveal";
+import { useResolvedMedia } from "@/components/shared/CmsMediaProvider";
 import { images } from "@/lib/data/images";
 
 const aiCapabilities = [
@@ -30,6 +33,7 @@ const aiCapabilities = [
 ];
 
 export function AISolutions() {
+  const aiImage = useResolvedMedia(images.services.ai);
   return (
     <Section id="ai-solutions" className="overflow-hidden">
       <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
@@ -83,12 +87,13 @@ export function AISolutions() {
             <div className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-accent/20 via-transparent to-accent/5 blur-2xl" />
             <div className="relative overflow-hidden rounded-2xl border border-border">
               <Image
-                src={images.services.ai}
+                src={aiImage}
                 alt="AI and machine learning solutions"
                 width={640}
                 height={480}
                 className="aspect-[4/3] w-full object-cover"
                 sizes="(max-width: 1024px) 100vw, 50vw"
+                unoptimized={aiImage.startsWith("data:")}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6 rounded-xl border border-border/60 bg-surface/90 p-4 backdrop-blur-sm">

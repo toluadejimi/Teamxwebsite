@@ -5,6 +5,11 @@ import {
   caseStudies as seedCaseStudies,
   type CaseStudy,
 } from "@/lib/data/case-studies";
+import {
+  allServices as seedServices,
+  type Service,
+} from "@/lib/data/services";
+import { buildDefaultImageCatalog } from "@/lib/cms/media";
 
 export type CmsJob = {
   id: string;
@@ -72,12 +77,18 @@ export type CmsCaseStudy = CaseStudy & {
   active: boolean;
 };
 
+export type CmsService = Service & {
+  id: string;
+  active: boolean;
+};
+
 export type CmsData = {
   contact: CmsContact;
   images: CmsImageEntry[];
   jobs: CmsJob[];
   chats: ChatConversation[];
   caseStudies: CmsCaseStudy[];
+  services: CmsService[];
 };
 
 const DATA_DIR = process.env.VERCEL
@@ -111,25 +122,7 @@ const defaultContact: CmsContact = {
   ],
 };
 
-const defaultImageCatalog: Array<{ key: string; category: string; label: string; url: string }> = [
-  { key: "brand.logo", category: "Brand", label: "Company logo", url: "" },
-  { key: "hero.main", category: "Hero", label: "Hero primary", url: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1600&q=80" },
-  { key: "hero.secondary", category: "Hero", label: "Hero secondary", url: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200&q=80" },
-  { key: "company.office", category: "Company", label: "Office", url: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=1200&q=80" },
-  { key: "company.team", category: "Company", label: "Team", url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=1200&q=80" },
-  { key: "company.meeting", category: "Company", label: "Meeting", url: "https://images.unsplash.com/photo-1600880292203-75762b2875ea?w=1200&q=80" },
-  { key: "services.banking", category: "Services", label: "Banking", url: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=1200&q=80" },
-  { key: "services.education", category: "Services", label: "Education", url: "https://images.unsplash.com/photo-1523240795612-9a054b0de244?w=1200&q=80" },
-  { key: "services.healthcare", category: "Services", label: "Healthcare", url: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=1200&q=80" },
-  { key: "services.government", category: "Services", label: "Government", url: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&q=80" },
-  { key: "services.ai", category: "Services", label: "AI Solutions", url: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&q=80" },
-  { key: "services.cloud", category: "Services", label: "Cloud", url: "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=1200&q=80" },
-  { key: "careers.culture", category: "Careers", label: "Culture", url: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=80" },
-  { key: "careers.remote", category: "Careers", label: "Remote work", url: "https://images.unsplash.com/photo-1588196749597-9ff07509d88e?w=1200&q=80" },
-  { key: "portfolio.banking", category: "Portfolio", label: "Banking project", url: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=1200&q=80" },
-  { key: "portfolio.healthcare", category: "Portfolio", label: "Healthcare project", url: "https://images.unsplash.com/photo-1631217868264-e5b165ff0a0a?w=1200&q=80" },
-  { key: "blog.default", category: "Blog", label: "Blog default", url: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80" },
-];
+const defaultImageCatalog: CmsImageEntry[] = buildDefaultImageCatalog();
 
 const defaultJobs: CmsJob[] = [
   {
@@ -214,11 +207,19 @@ const defaultCaseStudies: CmsCaseStudy[] = seedCaseStudies.map((study) => ({
   active: true,
 }));
 
+const defaultServices: CmsService[] = seedServices.map((service) => ({
+  ...service,
+  id: `svc_${service.slug}`,
+  active: true,
+}));
+
 function mergeImageCatalog(existing?: CmsImageEntry[]): CmsImageEntry[] {
   const byKey = new Map((existing || []).map((img) => [img.key, img]));
   const merged = defaultImageCatalog.map((def) => {
     const cur = byKey.get(def.key);
-    return cur ? { ...def, ...cur, key: def.key, category: def.category, label: def.label } : def;
+    return cur
+      ? { ...def, url: cur.url || def.url, label: def.label, category: def.category }
+      : def;
   });
   for (const img of existing || []) {
     if (!merged.some((m) => m.key === img.key)) merged.push(img);
@@ -233,6 +234,7 @@ function defaultData(): CmsData {
     jobs: defaultJobs,
     chats: [],
     caseStudies: defaultCaseStudies,
+    services: defaultServices,
   };
 }
 
@@ -255,6 +257,7 @@ async function ensureStore(): Promise<CmsData> {
         caseStudies: parsed.caseStudies?.length
           ? parsed.caseStudies
           : defaultCaseStudies,
+        services: parsed.services?.length ? parsed.services : defaultServices,
       };
       return memoryStore;
     } catch {

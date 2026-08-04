@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 import { PageLoaderProvider } from "@/components/ui/PageLoader";
+import { CmsMediaProvider } from "@/components/shared/CmsMediaProvider";
 
 interface ProvidersProps {
   children: ReactNode;
@@ -15,7 +16,6 @@ function LenisProvider({ children }: { children: ReactNode }) {
   const isAdmin = pathname?.startsWith("/admin");
 
   useEffect(() => {
-    // Smooth scroll causes rubber-banding / "scroll up" on admin image grids
     if (isAdmin) return;
 
     const lenis = new Lenis({
@@ -42,10 +42,17 @@ function LenisProvider({ children }: { children: ReactNode }) {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-      <LenisProvider>
-        <PageLoaderProvider>{children}</PageLoaderProvider>
-      </LenisProvider>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <CmsMediaProvider>
+        <LenisProvider>
+          <PageLoaderProvider>{children}</PageLoaderProvider>
+        </LenisProvider>
+      </CmsMediaProvider>
     </ThemeProvider>
   );
 }

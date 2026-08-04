@@ -1,11 +1,9 @@
-"use client";
-
 import { ArrowRight } from "lucide-react";
 import { ServiceCard } from "@/components/ui/Card";
 import { Section } from "@/components/ui/Section";
 import { Button } from "@/components/ui/Button";
 import { Reveal } from "@/components/shared/Reveal";
-import { getFeaturedServices } from "@/lib/data/services";
+import { readCms } from "@/lib/cms/store";
 
 const serviceIconNames: Record<string, string> = {
   "core-banking-application": "Landmark",
@@ -16,8 +14,30 @@ const serviceIconNames: Record<string, string> = {
   "custom-software-development": "Code2",
 };
 
-export function ServicesOverview() {
-  const services = getFeaturedServices(6);
+const featuredSlugs = [
+  "core-banking-application",
+  "hospital-management",
+  "government-portal",
+  "ai-chatbots",
+  "cloud-migration",
+  "custom-software-development",
+];
+
+export async function ServicesOverview() {
+  const cms = await readCms();
+  const bySlug = new Map(
+    cms.services.filter((s) => s.active !== false).map((s) => [s.slug, s])
+  );
+  const services = featuredSlugs
+    .map((slug) => bySlug.get(slug))
+    .filter(Boolean)
+    .slice(0, 6) as NonNullable<ReturnType<typeof bySlug.get>>[];
+
+  // Fallback: first 6 active if featured missing
+  const list =
+    services.length > 0
+      ? services
+      : cms.services.filter((s) => s.active !== false).slice(0, 6);
 
   return (
     <Section
@@ -27,7 +47,7 @@ export function ServicesOverview() {
       description="End-to-end software engineering across financial services, healthcare, government, and beyond — from discovery to deployment and ongoing evolution."
     >
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {services.map((service, index) => (
+        {list.map((service, index) => (
           <Reveal key={service.slug} delay={index * 0.08}>
             <ServiceCard
               title={service.title}

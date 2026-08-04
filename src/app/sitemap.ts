@@ -2,7 +2,6 @@ import type { MetadataRoute } from "next";
 import { getSiteUrl } from "@/lib/seo";
 import { blogPosts } from "@/lib/data/blog";
 import { portfolioProjects } from "@/lib/data/portfolio";
-import { allServices } from "@/lib/data/services";
 import { readCms } from "@/lib/cms/store";
 
 const staticRoutes = [
@@ -35,12 +34,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       path === "" ? 1 : path === "/services" || path === "/contact" ? 0.9 : 0.7,
   }));
 
-  const serviceEntries: MetadataRoute.Sitemap = allServices.map((service) => ({
-    url: getSiteUrl(`/services/${service.slug}`),
-    lastModified: now,
-    changeFrequency: "monthly",
-    priority: 0.8,
-  }));
+  const serviceEntries: MetadataRoute.Sitemap = cms.services
+    .filter((s) => s.active !== false)
+    .map((service) => ({
+      url: getSiteUrl(`/services/${service.slug}`),
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    }));
 
   const portfolioEntries: MetadataRoute.Sitemap = portfolioProjects.map(
     (project) => ({

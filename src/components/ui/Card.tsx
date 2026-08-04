@@ -13,6 +13,7 @@ import { ArrowUpRight } from "lucide-react";
 import { type ReactNode, useRef } from "react";
 import { getIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { useResolvedMedia } from "@/components/shared/CmsMediaProvider";
 
 interface CardBaseProps {
   title: string;
@@ -38,6 +39,7 @@ function CardShell({
   badge,
 }: CardBaseProps) {
   const Icon = iconName ? getIcon(iconName) : null;
+  const resolvedImage = useResolvedMedia(image);
   const ref = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -78,14 +80,19 @@ function CardShell({
         className
       )}
     >
-      {image && (
+      {resolvedImage && (
         <div className="relative aspect-[16/10] overflow-hidden">
           <Image
-            src={image}
+            src={resolvedImage}
             alt={imageAlt || title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             sizes="(max-width: 768px) 100vw, 33vw"
+            unoptimized={
+              resolvedImage.startsWith("data:") ||
+              (!resolvedImage.includes("images.unsplash.com") &&
+                resolvedImage.startsWith("http"))
+            }
           />
           <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent" />
         </div>
