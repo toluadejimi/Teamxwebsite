@@ -114,11 +114,6 @@ export default function AdminLoginPage() {
             >
               {loading ? "Checking…" : "Continue"}
             </button>
-            <p className="mt-4 text-center text-[11px] leading-relaxed text-slate-500">
-              Set <code className="text-slate-400">ADMIN_PASSWORD</code> in{" "}
-              <code className="text-slate-400">.env.local</code>. 2FA is required
-              after password.
-            </p>
           </form>
         )}
 

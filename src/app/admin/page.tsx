@@ -7,11 +7,12 @@ import { Briefcase, ImageIcon, MessageSquare, Phone } from "lucide-react";
 
 export default function AdminDashboardPage() {
   const router = useRouter();
+  const [ready, setReady] = useState(false);
   const [stats, setStats] = useState({ jobs: 0, chats: 0, unread: 0, images: 0 });
 
   useEffect(() => {
     (async () => {
-      const me = await fetch("/api/admin/me");
+      const me = await fetch("/api/admin/me", { cache: "no-store" });
       if (!me.ok) {
         router.replace("/admin/login");
         return;
@@ -25,18 +26,57 @@ export default function AdminDashboardPage() {
         jobs: Array.isArray(jobs) ? jobs.length : 0,
         chats: Array.isArray(chats) ? chats.length : 0,
         unread: Array.isArray(chats)
-          ? chats.reduce((n: number, c: { unreadAdmin?: number }) => n + (c.unreadAdmin || 0), 0)
+          ? chats.reduce(
+              (n: number, c: { unreadAdmin?: number }) => n + (c.unreadAdmin || 0),
+              0
+            )
           : 0,
         images: Array.isArray(images) ? images.length : 0,
       });
+      setReady(true);
     })();
   }, [router]);
 
+  if (!ready) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+        <p className="mt-3 text-xs tracking-wider text-slate-500 uppercase">
+          Loading dashboard
+        </p>
+      </div>
+    );
+  }
+
   const cards = [
-    { href: "/admin/images", label: "Site Images", value: stats.images, icon: ImageIcon, hint: "Update banners & media" },
-    { href: "/admin/contact", label: "Contact Info", value: "NG", icon: Phone, hint: "Email, phone, Nigeria offices" },
-    { href: "/admin/jobs", label: "Job Postings", value: stats.jobs, icon: Briefcase, hint: "Manage careers page" },
-    { href: "/admin/chat", label: "Live Chat", value: stats.unread, icon: MessageSquare, hint: `${stats.chats} conversations` },
+    {
+      href: "/admin/images",
+      label: "Site Images",
+      value: stats.images,
+      icon: ImageIcon,
+      hint: "Update banners & media",
+    },
+    {
+      href: "/admin/contact",
+      label: "Contact Info",
+      value: "NG",
+      icon: Phone,
+      hint: "Email, phone, Nigeria offices",
+    },
+    {
+      href: "/admin/jobs",
+      label: "Job Postings",
+      value: stats.jobs,
+      icon: Briefcase,
+      hint: "Manage careers page",
+    },
+    {
+      href: "/admin/chat",
+      label: "Live Chat",
+      value: stats.unread,
+      icon: MessageSquare,
+      hint: `${stats.chats} conversations`,
+    },
   ];
 
   return (
@@ -57,7 +97,9 @@ export default function AdminDashboardPage() {
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20 text-blue-300">
                 <Icon className="h-5 w-5" />
               </div>
-              <p className="text-xs uppercase tracking-wider text-slate-500">{card.label}</p>
+              <p className="text-xs uppercase tracking-wider text-slate-500">
+                {card.label}
+              </p>
               <p className="mt-1 text-2xl font-semibold text-white">{card.value}</p>
               <p className="mt-1 text-xs text-slate-400">{card.hint}</p>
             </Link>
