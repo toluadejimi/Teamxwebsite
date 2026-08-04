@@ -6,6 +6,8 @@ import { ShieldCheck } from "lucide-react";
 
 type Step = "password" | "setup" | "verify";
 
+const PENDING_KEY = "teamx_pending_token";
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("password");
@@ -13,8 +15,36 @@ export default function AdminLoginPage() {
   const [code, setCode] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [secret, setSecret] = useState("");
+  const [pendingToken, setPendingToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function storePending(token: string) {
+    setPendingToken(token);
+    try {
+      sessionStorage.setItem(PENDING_KEY, token);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function readPending() {
+    if (pendingToken) return pendingToken;
+    try {
+      return sessionStorage.getItem(PENDING_KEY) || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function clearPending() {
+    setPendingToken("");
+    try {
+      sessionStorage.removeItem(PENDING_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
 
   async function onPasswordSubmit(e: FormEvent) {
     e.preventDefault();
@@ -23,6 +53,7 @@ export default function AdminLoginPage() {
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ password }),
     });
     const data = await res.json().catch(() => ({}));
@@ -33,15 +64,21 @@ export default function AdminLoginPage() {
       return;
     }
 
-    // Password-only (e.g. Vercel without 2FA secret configured)
     if (!data.requires2fa) {
+      clearPending();
       router.push("/admin");
       router.refresh();
       return;
     }
 
+    if (data.pendingToken) storePending(data.pendingToken);
+
     if (data.setupRequired) {
-      const setup = await fetch("/api/admin/2fa");
+      const token = data.pendingToken || readPending();
+      const setup = await fetch("/api/admin/2fa", {
+        credentials: "include",
+        headers: token ? { "x-pending-token": token } : {},
+      });
       const setupData = await setup.json();
       if (!setup.ok) {
         setError(setupData.error || "Could not start 2FA setup.");
@@ -60,10 +97,16 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    const token = readPending();
     const res = await fetch("/api/admin/2fa", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({
+        code,
+        pendingToken: token || undefined,
+        setupSecret: step === "setup" ? secret || undefined : undefined,
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
@@ -73,6 +116,7 @@ export default function AdminLoginPage() {
       return;
     }
 
+    clearPending();
     router.push("/admin");
     router.refresh();
   }
@@ -128,8 +172,8 @@ export default function AdminLoginPage() {
           <form onSubmit={onTotpSubmit} className="space-y-4">
             <p className="text-sm leading-relaxed text-slate-400">
               Scan this QR code with{" "}
-              <strong className="text-slate-200">Google Authenticator</strong>, Authy,
-              or 1Password. Then enter the 6-digit code to finish setup.
+              <strong className="text-slate-200">Google Authenticator</strong>, then
+              enter the 6-digit code.
             </p>
             {qrDataUrl && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -203,6 +247,7 @@ export default function AdminLoginPage() {
                 setStep("password");
                 setCode("");
                 setError("");
+                clearPending();
               }}
               className="mt-3 w-full text-xs text-slate-500 hover:text-slate-300"
             >

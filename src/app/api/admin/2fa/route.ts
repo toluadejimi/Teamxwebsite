@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   PENDING_COOKIE,
   SESSION_COOKIE,
@@ -10,17 +9,17 @@ import {
   issueToken,
   registerFailedAttempt,
   requirePending,
-  revokeSession,
   verifyAndEnableTotp,
   verifyTotpCode,
   clearFailedAttempts,
 } from "@/lib/cms/auth";
 
-/** GET — return QR setup data when 2FA not yet enabled (requires pending cookie) */
-export async function GET() {
-  const pending = await requirePending();
+/** GET — QR setup when 2FA not enabled yet */
+export async function GET(request: Request) {
+  const pendingHeader = request.headers.get("x-pending-token");
+  const pending = await requirePending(pendingHeader);
   if (!pending) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Session expired. Sign in again." }, { status: 401 });
   }
 
   const enabled = await isTotpEnabled();
@@ -36,7 +35,7 @@ export async function GET() {
   });
 }
 
-/** POST — verify TOTP code (setup or login) */
+/** POST — verify TOTP (setup or login) */
 export async function POST(request: Request) {
   const lock = await isLockedOut();
   if (lock.locked) {
@@ -46,12 +45,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const pending = await requirePending();
+  const body = (await request.json().catch(() => null)) as {
+    code?: string;
+    pendingToken?: string;
+    setupSecret?: string;
+  } | null;
+
+  const pending = await requirePending(body?.pendingToken);
   if (!pending) {
-    return NextResponse.json({ error: "Session expired. Sign in again." }, { status: 401 });
+    return NextResponse.json(
+      { error: "Session expired. Sign in again." },
+      { status: 401 }
+    );
   }
 
-  const body = (await request.json().catch(() => null)) as { code?: string } | null;
   const code = body?.code?.trim() || "";
   if (!/^\d{6}$/.test(code)) {
     return NextResponse.json({ error: "Enter the 6-digit code" }, { status: 400 });
@@ -61,7 +68,7 @@ export async function POST(request: Request) {
   let ok = false;
 
   if (!enabled) {
-    ok = await verifyAndEnableTotp(code);
+    ok = await verifyAndEnableTotp(code, body?.setupSecret);
   } else {
     ok = await verifyTotpCode(code);
   }
@@ -72,9 +79,6 @@ export async function POST(request: Request) {
   }
 
   await clearFailedAttempts();
-
-  const jar = await cookies();
-  revokeSession(jar.get(PENDING_COOKIE)?.value);
 
   const { token, maxAge } = issueToken("full");
   const res = NextResponse.json({ ok: true, authenticated: true });

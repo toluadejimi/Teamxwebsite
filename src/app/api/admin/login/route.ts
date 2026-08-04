@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   PENDING_COOKIE,
   SESSION_COOKIE,
   clearFailedAttempts,
   cookieOptions,
   isLockedOut,
-  isTotpRequired,
   isTotpEnabled,
+  isTotpRequired,
   issueToken,
   registerFailedAttempt,
-  revokeSession,
   verifyPassword,
 } from "@/lib/cms/auth";
 
@@ -38,13 +36,8 @@ export async function POST(request: Request) {
 
   await clearFailedAttempts();
 
-  const jar = await cookies();
-  revokeSession(jar.get(SESSION_COOKIE)?.value);
-  revokeSession(jar.get(PENDING_COOKIE)?.value);
-
   const totpRequired = await isTotpRequired();
 
-  // Vercel without writable FS / without ADMIN_TOTP_SECRET → password-only login
   if (!totpRequired) {
     const { token, maxAge } = issueToken("full");
     const res = NextResponse.json({
@@ -64,6 +57,7 @@ export async function POST(request: Request) {
     ok: true,
     requires2fa: true,
     setupRequired: !totpEnabled,
+    pendingToken: token,
   });
 
   res.cookies.set(PENDING_COOKIE, token, cookieOptions(maxAge));
